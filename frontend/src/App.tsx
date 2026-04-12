@@ -26,6 +26,8 @@ function App() {
 
   async function fetchGames() {
     setLoading(true);
+    // Add cache busting via a dummy filter or header if needed, 
+    // but usually just re-fetching with the client is enough.
     const { data, error } = await supabase
       .from('games')
       .select(`
@@ -37,21 +39,23 @@ function App() {
             last_played_at
           )
         )
-      `);
+      `)
+      .order('display_title');
 
     if (error) {
       console.error('Error fetching games:', error);
     } else {
       const formattedGames = data?.map(g => {
         // Collect all platforms and aggregate playtime
-        const platforms = g.platform_games?.map((pg: any) => pg.platform_name) || [];
+        const platforms = Array.from(new Set(g.platform_games?.map((pg: any) => pg.platform_name) || []));
         const totalMinutes = g.platform_games?.reduce((acc: number, pg: any) => {
-          return acc + (pg.play_stats?.[0]?.playtime_minutes || 0);
+          const platformMinutes = pg.play_stats?.reduce((sum: number, stat: any) => sum + (stat.playtime_minutes || 0), 0) || 0;
+          return acc + platformMinutes;
         }, 0) || 0;
         
         // Find most recent play date
         const dates = g.platform_games
-          ?.map((pg: any) => pg.play_stats?.[0]?.last_played_at)
+          ?.flatMap((pg: any) => pg.play_stats?.map((stat: any) => stat.last_played_at))
           .filter(Boolean)
           .map((d: string) => new Date(d).getTime());
         const lastPlayed = dates?.length ? new Date(Math.max(...dates)).toISOString() : null;
@@ -164,7 +168,12 @@ function App() {
                   <div style={{display: 'flex', gap: '4px'}}>
                     {game.platforms.map(p => (
                       <span key={p} className="platform-badge" style={{
-                        backgroundColor: p === 'XBOX' ? '#107c10' : p === 'STEAM' ? '#171a21' : 'var(--accent)',
+                        backgroundColor: 
+                          p === 'XBOX' ? '#107c10' : 
+                          p === 'STEAM' ? '#171a21' : 
+                          p === 'PLAYSTATION' ? '#003087' : 
+                          p === 'NINTENDO' ? '#e60012' : 
+                          'var(--accent)',
                         fontSize: '0.65rem'
                       }}>{p}</span>
                     ))}
