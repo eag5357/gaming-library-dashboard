@@ -1,9 +1,11 @@
 :root {
   --bg-dark: #0f172a;
+  --bg-secondary: #1e293b;
   --bg-card: #1e293b;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --accent: #3b82f6;
+  --border: #334155;
 }
 
 body {

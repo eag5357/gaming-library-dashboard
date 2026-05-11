@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import './App.css';
-import { LayoutGrid, RefreshCw, Clock, Search, Filter, Trophy, Gamepad2, Timer } from 'lucide-react';
+import { LayoutGrid, RefreshCw, Clock, Search, Filter, Trophy, Gamepad2, Timer, LogOut, User, Settings } from 'lucide-react';
+import { Auth } from './components/Auth';
+import { AccountSettings } from './components/AccountSettings';
+import type { Session } from '@supabase/supabase-js';
 
 interface Game {
   id: string;
@@ -15,61 +18,84 @@ interface Game {
 type SortOption = 'alphabetical' | 'most-played' | 'most-recent';
 
 function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('most-played');
   const [loading, setLoading] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    fetchGames();
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+      } catch (err: any) {
+        console.error("Auth initialization error:", err);
+        setError("Failed to initialize authentication.");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setInitialLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (session) {
+      fetchGames();
+    }
+  }, [session]);
+
   async function fetchGames() {
+    if (!session) return;
     setLoading(true);
-    // Add cache busting via a dummy filter or header if needed, 
-    // but usually just re-fetching with the client is enough.
+    
     const { data, error } = await supabase
-      .from('games')
-      .select(`
-        *,
-        platform_games (
-          platform_name,
-          play_stats (
-            playtime_minutes,
-            last_played_at
-          )
-        )
-      `)
+      .from('v_games_with_stats')
+      .select('*')
+      .eq('user_id', session.user.id)
       .order('display_title');
 
     if (error) {
       console.error('Error fetching games:', error);
     } else {
-      const formattedGames = data?.map(g => {
-        // Collect all platforms and aggregate playtime
-        const platforms = Array.from(new Set(g.platform_games?.map((pg: any) => pg.platform_name) || []));
-        const totalMinutes = g.platform_games?.reduce((acc: number, pg: any) => {
-          const platformMinutes = pg.play_stats?.reduce((sum: number, stat: any) => sum + (stat.playtime_minutes || 0), 0) || 0;
-          return acc + platformMinutes;
-        }, 0) || 0;
-        
-        // Find most recent play date
-        const dates = g.platform_games
-          ?.flatMap((pg: any) => pg.play_stats?.map((stat: any) => stat.last_played_at))
-          .filter(Boolean)
-          .map((d: string) => new Date(d).getTime());
-        const lastPlayed = dates?.length ? new Date(Math.max(...dates)).toISOString() : null;
-
-        return {
-          ...g,
-          platforms,
-          playtime_minutes: totalMinutes,
-          last_played_at: lastPlayed
-        };
-      }) || [];
+      const formattedGames = data?.map(g => ({
+        ...g,
+        platforms: (g.platforms || []).filter(Boolean),
+        playtime_minutes: g.total_playtime_minutes || 0
+      })) || [];
       setGames(formattedGames);
     }
     setLoading(false);
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setGames([]);
+  };
+
+  if (error) {
+    return <div className="loading" style={{color: '#e60012'}}>{error}</div>;
+  }
+
+  if (initialLoading) {
+    return <div className="loading">Initializing Session...</div>;
+  }
+
+  if (!session) {
+    return <Auth />;
   }
 
   const formatPlaytime = (minutes: number) => {
@@ -99,10 +125,31 @@ function App() {
     <div className="dashboard">
       <header className="header">
         <h1><LayoutGrid size={28} style={{marginRight: '10px', verticalAlign: 'middle'}} /> Gaming Dashboard</h1>
-        <button onClick={fetchGames} style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'}}>
-          <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}>
+          <button onClick={fetchGames} style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'}}>
+            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <button onClick={() => setShowSettings(true)} style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'}}>
+            <Settings size={20} />
+          </button>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)'}}>
+            <User size={20} />
+            <span style={{fontSize: '0.9rem'}}>{session?.user.email}</span>
+          </div>
+          <button onClick={handleLogout} style={{background: 'none', border: 'none', cursor: 'pointer', color: '#e60012', display: 'flex', alignItems: 'center', gap: '5px'}}>
+            <LogOut size={20} />
+            <span style={{fontSize: '0.9rem', fontWeight: 'bold'}}>Logout</span>
+          </button>
+        </div>
       </header>
+
+      {showSettings && session && (
+        <AccountSettings 
+          userId={session.user.id} 
+          onClose={() => setShowSettings(false)} 
+          onSync={fetchGames}
+        />
+      )}
 
       <section className="stats-grid">
         <div className="stat-card">
