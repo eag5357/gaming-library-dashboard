@@ -47,6 +47,7 @@ We have successfully implemented a cross-platform ETL pipeline and a unified das
 
 ## Operational Rules
 *   **Context Management**: The agent **MUST** update `GEMINI.md` after every command executed and task completed to summarize the results and save on context for future turns.
+*   **Commit Mandate**: The agent **MUST NEVER** stage or commit changes if the test suite (`make test`) fails or if there are any unresolved errors in the workspace. Passing all tests is a hard prerequisite for any commit.
 
 ### Security & Audit Logs
 *   **2026-05-11**: Full repository scan for hardcoded secrets.
