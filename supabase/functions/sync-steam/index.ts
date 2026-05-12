@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-async function performSteamSync() {
+export async function performSteamSync() {
   const STEAM_API_KEY = Deno.env.get("STEAM_API_KEY") ?? "";
   const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -48,17 +48,19 @@ async function performSteamSync() {
   return { success: true, count: syncedCount };
 }
 
-if (Deno.args.includes("--sync")) {
+if (import.meta.main && Deno.args.includes("--sync")) {
   const result = await performSteamSync();
   console.log("Steam sync finished:", result);
   Deno.exit(0);
 }
 
-Deno.serve(async (req) => {
-  try {
-    const result = await performSteamSync();
-    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-  }
-});
+if (import.meta.main) {
+  Deno.serve(async (req) => {
+    try {
+      const result = await performSteamSync();
+      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  });
+}

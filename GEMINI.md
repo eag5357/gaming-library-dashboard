@@ -32,6 +32,19 @@ We have successfully implemented a cross-platform ETL pipeline and a unified das
 *   **Environment Constraint**: Due to local CLI limitations, Supabase Edge Functions **must be run directly via Deno** rather than using `supabase functions serve`.
     *   Example: `deno run --allow-net --allow-env --env-file=.env supabase/functions/sync-psn/index.ts --sync`
 
+### Testing Infrastructure
+*   **Unified Test Runner**: A root `Makefile` orchestrates the entire testing suite.
+    *   Command: `make test` or `make test-all`
+*   **Frontend**: Powered by **Vitest** and **React Testing Library**.
+    *   Location: `frontend/src/**/*.test.tsx`
+    *   Configuration: `frontend/vite.config.ts`
+    *   Includes mocks for Supabase Auth and component-level accessibility checks.
+*   **Edge Functions**: Powered by **Deno's native test runner**.
+    *   Location: `supabase/functions/**/*_test.ts`
+    *   Modular Design: Core logic (e.g., `sanitizeTitle`, `byteaToString`) is exported for unit testing.
+    *   **Dependency Note**: The `sync-nintendo` function uses **dynamic imports** for `nxapi` to bypass a Deno resolution issue with the nested `discord-rpc` dependency (which contains a non-standard GitHub URL). This ensures the file remains testable and parsable.
+*   **Automated Validation**: Recommended to run `make test` before every commit to ensure multi-platform sync and normalization logic remains intact.
+
 ## Operational Rules
 *   **Context Management**: The agent **MUST** update `GEMINI.md` after every command executed and task completed to summarize the results and save on context for future turns.
 
@@ -67,14 +80,20 @@ We have successfully implemented a cross-platform ETL pipeline and a unified das
     *   Established Row Level Security (RLS) policies for `linked_accounts` and `play_stats` to ensure data isolation.
     *   Updated `v_games_with_stats` view to support per-user aggregation and filtering.
     *   Prepared database for authenticated user sessions.
-*   **2026-05-11**: Nintendo Sync Refinement & Session Stability.
-    *   **Session Longevity**: Research confirms Nintendo Account Session Tokens are long-lived (typically **2 years**).
-    *   **Auto-Refresh**: The `nxapi` library automatically handles the 15-minute `id_token` and 2-hour Web Service token refreshes as long as the base Session Token is valid.
-    *   **Stability**: The current implementation using `createWithSessionToken` is robust for long-term background syncing without requiring frequent user re-authentication.
+*   **2026-05-11**: Nintendo Sync Refinement & UI Integration.
+    *   **Logic Fix**: Updated `sync-nintendo` logic to fetch the full `playHistories` array from the NSO (Coral) API.
+    *   **UI Update**: Added "Nintendo Account ID" field to the `AccountSettings` modal for user-driven linking.
+    *   **Infrastructure Improvements**:
+        *   Developed `get_nintendo_token.js`: A standalone PKCE-aware script for direct session token recovery from Nintendo, bypassing `nxapi` CLI safety blocks.
+        *   Developed `sync_nintendo_node.js`: A specialized Node.js sync script that handles multi-source aggregation (Coral + Moon) and bypasses Deno dependency issues.
+    *   **Current API Status**: Nintendo has recently updated their NSO and Parental Controls APIs, causing a global outage for third-party tools (imink/nxapi).
+        *   Error: `UpdateRequiredException` / `Remote configuration prevents Coral authentication`.
+        *   Resolution: Pending community updates to `nxapi` version strings.
+    *   **Workaround**: Documented the use of `NXAPI_ENABLE_REMOTE_CONFIG=0` to bypass minor safety checks during the outage.
 
 ## Next Steps
 1.  **Frontend Polish**: Enhance the dashboard UI with better loading states and empty library placeholders.
 2.  **Manual Account Linking UI**: (Completed) Settings page implemented for user-driven platform ID entry.
 3.  **Cloud Deployment**: (Prepared) Pending project linking and secret configuration in Supabase Cloud.
-4.  **Nintendo Sync Refinement**: (Refined) Documented session stability; further refinement pending long-term testing.
+4.  **Nintendo Sync Resumption**: Run `npm install -g nxapi` once community fixes are live, then execute `node sync_nintendo_node.js` to populate the library.
 

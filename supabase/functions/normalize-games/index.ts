@@ -1,5 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+export function sanitizeTitle(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/\b(Enhanced Edition|GOTY|Game of the Year|Remastered|Definitive Edition|Friend's Pass|Platinum|Legacy|Edition|Demo|Launcher|Bundle|Pack)\b/gi, "")
+    .replace(/[^a-zA-Z0-9]/g, " ") 
+    .replace(/\s+/g, " ") 
+    .trim();
+}
+
 async function performNormalization() {
   const TWITCH_CLIENT_ID = Deno.env.get("TWITCH_CLIENT_ID") ?? "";
   const TWITCH_CLIENT_SECRET = Deno.env.get("TWITCH_CLIENT_SECRET") ?? "";
@@ -74,14 +84,7 @@ async function performNormalization() {
     }
 
     if (!match) {
-      const sanitizedTitle = title
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") 
-        .replace(/\b(Enhanced Edition|GOTY|Game of the Year|Remastered|Definitive Edition|Friend's Pass|Platinum|Legacy|Edition|Demo|Launcher|Bundle|Pack)\b/gi, "")
-        .replace(/[^a-zA-Z0-9]/g, " ") 
-        .replace(/\s+/g, " ") 
-        .trim();
-
+      const sanitizedTitle = sanitizeTitle(title);
       const stripAll = (str: string) => str.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
       const strippedSanitized = stripAll(sanitizedTitle);
 
@@ -124,18 +127,20 @@ async function performNormalization() {
   return { success: true, count: normalizedCount };
 }
 
-if (Deno.args.includes("--sync")) {
-  const result = await performNormalization();
-  console.log("Normalization finished:", result);
-  Deno.exit(0);
-}
-
-Deno.serve(async (req) => {
-  try {
+if (import.meta.main) {
+  if (Deno.args.includes("--sync")) {
     const result = await performNormalization();
-    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (error: any) {
-    console.error("Normalization error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.log("Normalization finished:", result);
+    Deno.exit(0);
   }
-});
+
+  Deno.serve(async (req) => {
+    try {
+      const result = await performNormalization();
+      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+    } catch (error: any) {
+      console.error("Normalization error:", error);
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+  });
+}

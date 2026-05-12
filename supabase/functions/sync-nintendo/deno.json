@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "nxapi": "npm:nxapi@1.6.1",
+    "nxapi/coral": "npm:nxapi@1.6.1/coral",
+    "nxapi/moon": "npm:nxapi@1.6.1/moon"
+  }
+}

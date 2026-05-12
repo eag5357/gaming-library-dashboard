@@ -16,6 +16,7 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
   const [steamId, setSteamId] = useState('');
   const [xboxXuid, setXboxXuid] = useState('');
   const [psnId, setPsnId] = useState('');
+  const [nintendoId, setNintendoId] = useState('');
 
   useEffect(() => {
     fetchAccounts();
@@ -34,6 +35,7 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
         if (acc.platform_name === 'STEAM') setSteamId(acc.provider_account_id);
         if (acc.platform_name === 'XBOX') setXboxXuid(acc.provider_account_id);
         if (acc.platform_name === 'PLAYSTATION') setPsnId(acc.provider_account_id);
+        if (acc.platform_name === 'NINTENDO') setNintendoId(acc.provider_account_id);
       });
     }
     setLoading(false);
@@ -54,7 +56,8 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
     const platformData = [
       { name: 'STEAM', id: steamId, function: 'sync-steam' },
       { name: 'XBOX', id: xboxXuid, function: 'sync-xbox' },
-      { name: 'PLAYSTATION', id: psnId, function: 'sync-psn' }
+      { name: 'PLAYSTATION', id: psnId, function: 'sync-psn' },
+      { name: 'NINTENDO', id: nintendoId, function: 'sync-nintendo' }
     ].filter(p => p.id.trim() !== '');
 
     try {
@@ -74,15 +77,11 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
       setSyncStatus({ step: 'syncing', progress: 30 });
 
       // 2. Trigger Sync Functions
-      // Note: In local dev, we attempt to call the Edge Functions. 
-      // If 'supabase functions serve' isn't running, this might fail, 
-      // so we'll provide feedback.
       for (let i = 0; i < platformData.length; i++) {
         const p = platformData[i];
         setSyncStatus(prev => ({ ...prev, currentPlatform: p.name, progress: 30 + (i * 20) }));
         
         try {
-          // Attempt to invoke the function via Supabase Client
           const { error: syncError } = await supabase.functions.invoke(p.function);
           if (syncError) console.warn(`Could not trigger ${p.function} automatically:`, syncError);
         } catch (e) {
@@ -213,6 +212,18 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                 placeholder="Numeric Account ID (not Online ID)"
                 value={psnId}
                 onChange={(e) => setPsnId(e.target.value)}
+                className="search-input"
+                style={{ width: '100%', marginBottom: 0 }}
+              />
+            </div>
+
+            <div className="input-group">
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Nintendo Account ID</label>
+              <input
+                type="text"
+                placeholder="16-character hex ID"
+                value={nintendoId}
+                onChange={(e) => setNintendoId(e.target.value)}
                 className="search-input"
                 style={{ width: '100%', marginBottom: 0 }}
               />

@@ -1,7 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import * as PSN from "npm:psn-api";
 
-async function performPsnSync() {
+export const byteaToString = (bytea: any) => {
+   if (!bytea) return null;
+   if (typeof bytea === 'string') {
+      if (bytea.startsWith('\\x')) {
+        const hex = bytea.slice(2);
+        return new TextDecoder().decode(Uint8Array.from(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))));
+      }
+      return bytea;
+   }
+   return new TextDecoder().decode(bytea);
+}
+
+export async function performPsnSync() {
   const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const PSN_NPSSO = Deno.env.get("PSN_NPSSO") ?? "";
@@ -23,18 +35,6 @@ async function performPsnSync() {
   for (const account of accounts) {
     try {
       console.log(`Processing PSN Account ID: ${account.id}`);
-
-      const byteaToString = (bytea: any) => {
-         if (!bytea) return null;
-         if (typeof bytea === 'string') {
-            if (bytea.startsWith('\\x')) {
-              const hex = bytea.slice(2);
-              return new TextDecoder().decode(Uint8Array.from(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))));
-            }
-            return bytea;
-         }
-         return new TextDecoder().decode(bytea);
-      }
 
       let refreshToken = byteaToString(account.refresh_token);
       let auth: any = null;
@@ -73,13 +73,13 @@ async function performPsnSync() {
              allTitlesMap.set(title.titleId, title);
           }
         }
-      } catch (e) { console.error("getUserPlayedGames failed:", e.message); }
+      } catch (e: any) { console.error("getUserPlayedGames failed:", e.message); }
 
       // Source B: getRecentlyPlayedGames (Additional recent source)
       try {
         console.log("Fetching recently played list (getRecentlyPlayedGames)...");
         // @ts-ignore
-        const recentlyPlayed = await PSN.getRecentlyPlayedGames(auth, { limit: 100 });
+        const recentlyPlayed: any = await PSN.getRecentlyPlayedGames(auth, { limit: 100 });
         if (recentlyPlayed.data?.recentlyPlayedGames) {
           console.log(`getRecentlyPlayedGames returned ${recentlyPlayed.data.recentlyPlayedGames.length} titles.`);
           for (const title of recentlyPlayed.data.recentlyPlayedGames) {
@@ -88,7 +88,7 @@ async function performPsnSync() {
              }
           }
         }
-      } catch (e) { console.error("getRecentlyPlayedGames failed:", e.message); }
+      } catch (e: any) { console.error("getRecentlyPlayedGames failed:", e.message); }
 
       // Source C: getUserTitles (Deep backup for library coverage)
       try {
@@ -103,7 +103,7 @@ async function performPsnSync() {
              }
           }
         }
-      } catch (e) { console.error("getUserTitles failed:", e.message); }
+      } catch (e: any) { console.error("getUserTitles failed:", e.message); }
 
       console.log(`Total unique titles found across all methods: ${allTitlesMap.size}`);
 
@@ -163,17 +163,19 @@ async function performPsnSync() {
   return { success: true, count: totalSynced };
 }
 
-if (Deno.args.includes("--sync")) {
+if (import.meta.main && Deno.args.includes("--sync")) {
   const result = await performPsnSync();
   console.log("Sync finished:", result);
   Deno.exit(0);
 }
 
-Deno.serve(async (req) => {
-  try {
-    const result = await performPsnSync();
-    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
-  }
-});
+if (import.meta.main) {
+  Deno.serve(async (req) => {
+    try {
+      const result = await performPsnSync();
+      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
+    }
+  });
+}

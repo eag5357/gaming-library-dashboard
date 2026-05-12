@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-async function performXboxSync() {
+export async function performXboxSync() {
   const OPENXBL_API_KEY = Deno.env.get("OPENXBL_API_KEY") ?? "";
   const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -73,7 +73,7 @@ async function performXboxSync() {
         } else {
           console.warn(`[XBOX] Stats API returned ${statsRes.status} for ${title.name}`);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn(`Failed to fetch stats for ${title.name}: ${e.message}`);
       }
 
@@ -98,17 +98,19 @@ async function performXboxSync() {
   return { success: true, count: totalSynced };
 }
 
-if (Deno.args.includes("--sync")) {
+if (import.meta.main && Deno.args.includes("--sync")) {
   const result = await performXboxSync();
   console.log("Xbox sync finished:", result);
   Deno.exit(0);
 }
 
-Deno.serve(async (req) => {
-  try {
-    const result = await performXboxSync();
-    return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
-  }
-});
+if (import.meta.main) {
+  Deno.serve(async (req) => {
+    try {
+      const result = await performXboxSync();
+      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+    } catch (error: any) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+  });
+}
