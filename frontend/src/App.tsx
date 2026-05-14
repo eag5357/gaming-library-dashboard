@@ -135,21 +135,21 @@ function App() {
   return (
     <div className="dashboard">
       <header className="header">
-        <h1><LayoutGrid size={28} style={{marginRight: '10px', verticalAlign: 'middle'}} /> Gaming Dashboard</h1>
-        <div style={{display: 'flex', alignItems: 'center', gap: '1.5rem'}}>
-          <button onClick={fetchGames} style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'}}>
+        <h1><LayoutGrid size={28} style={{marginRight: '10px'}} /> Gaming Dashboard</h1>
+        <div className="header-actions">
+          <button onClick={fetchGames} className="btn-icon" title="Refresh Library">
             <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button onClick={() => setShowSettings(true)} style={{background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'}}>
+          <button onClick={() => setShowSettings(true)} className="btn-icon" title="Library Settings">
             <Settings size={20} />
           </button>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)'}}>
+          <div className="user-profile">
             <User size={20} />
-            <span style={{fontSize: '0.9rem'}}>{session?.user.email}</span>
+            <span className="user-email">{session?.user.email}</span>
           </div>
-          <button onClick={handleLogout} style={{background: 'none', border: 'none', cursor: 'pointer', color: '#e60012', display: 'flex', alignItems: 'center', gap: '5px'}}>
+          <button onClick={handleLogout} className="btn-logout">
             <LogOut size={20} />
-            <span style={{fontSize: '0.9rem', fontWeight: 'bold'}}>Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       </header>

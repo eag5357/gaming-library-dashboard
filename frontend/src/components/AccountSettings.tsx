@@ -130,39 +130,9 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
   };
 
   return (
-    <div className="modal-overlay" style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.75)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(4px)'
-    }}>
-      <div className="modal-content" style={{
-        backgroundColor: 'var(--bg-secondary)',
-        padding: '2rem',
-        borderRadius: '16px',
-        width: '100%',
-        maxWidth: '550px',
-        border: '1px solid var(--border)',
-        position: 'relative',
-        maxHeight: '90vh',
-        overflowY: 'auto'
-      }}>
-        <button onClick={onClose} style={{
-          position: 'absolute',
-          top: '1rem',
-          right: '1rem',
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-secondary)',
-          cursor: 'pointer'
-        }}>
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <button onClick={onClose} className="btn-icon" style={{ position: 'absolute', top: '1rem', right: '1rem' }}>
           <X size={24} />
         </button>
 
@@ -174,18 +144,18 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             
             {/* Steam Section */}
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#171a21', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>S</div>
+            <div className="settings-section">
+              <div className="settings-header">
+                <div className="settings-label-group">
+                  <div className="platform-icon steam">S</div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>Steam</div>
-                    <div style={{ fontSize: '0.8rem', color: steamId ? '#107c10' : 'var(--text-secondary)' }}>
+                    <div className={steamId ? 'status-linked' : 'status-unlinked'}>
                       {steamId ? `Linked (ID: ${steamId.slice(0, 8)}...)` : 'Not Linked'}
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={handleLinkSteam} className="btn-primary" style={{ backgroundColor: 'transparent', border: '1px solid #171a21', color: '#171a21', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                <button type="button" onClick={handleLinkSteam} className="btn-secondary">
                   Auto-Link
                 </button>
               </div>
@@ -195,29 +165,28 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                 onChange={(e) => setSteamId(e.target.value)}
                 placeholder="SteamID64 (e.g. 7656119...)"
                 className="search-input"
-                style={{ marginBottom: '0.5rem' }}
               />
-              <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <details className="settings-help">
                 <summary>How do I find my Steam ID?</summary>
-                <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
-                  Go to <a href="https://steamid.io/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>SteamID.io</a> and enter your profile URL. Copy the <b>SteamID64</b>.
+                <div className="help-content">
+                  Go to <a href="https://steamid.io/" target="_blank" rel="noreferrer">SteamID.io</a> and enter your profile URL. Copy the <b>SteamID64</b>.
                 </div>
               </details>
             </div>
 
             {/* Xbox Section */}
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#107c10', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>X</div>
+            <div className="settings-section">
+              <div className="settings-header">
+                <div className="settings-label-group">
+                  <div className="platform-icon xbox">X</div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>Xbox</div>
-                    <div style={{ fontSize: '0.8rem', color: xboxXuid ? '#107c10' : 'var(--text-secondary)' }}>
+                    <div className={xboxXuid ? 'status-linked' : 'status-unlinked'}>
                       {xboxXuid ? `Linked (ID: ${xboxXuid.slice(0, 8)}...)` : 'Not Linked'}
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={handleLinkXbox} className="btn-primary" style={{ backgroundColor: 'transparent', border: '1px solid #107c10', color: '#107c10', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                <button type="button" onClick={handleLinkXbox} className="btn-secondary">
                   Auto-Link
                 </button>
               </div>
@@ -227,24 +196,23 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                 onChange={(e) => setXboxXuid(e.target.value)}
                 placeholder="Xbox XUID (Numeric)"
                 className="search-input"
-                style={{ marginBottom: '0.5rem' }}
               />
-              <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <details className="settings-help">
                 <summary>How do I find my Xbox XUID?</summary>
-                <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
-                  Sign in to <a href="https://xbl.io/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>xbl.io</a>. Your <b>XUID</b> will be visible on your profile page.
+                <div className="help-content">
+                  Sign in to <a href="https://xbl.io/" target="_blank" rel="noreferrer">xbl.io</a>. Your <b>XUID</b> will be visible on your profile page.
                 </div>
               </details>
             </div>
             
             {/* Nintendo Flow */}
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#e60012', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>N</div>
+            <div className="settings-section">
+              <div className="settings-header">
+                <div className="settings-label-group">
+                  <div className="platform-icon nintendo">N</div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>Nintendo</div>
-                    <div style={{ fontSize: '0.8rem', color: nintendoId ? '#107c10' : 'var(--text-secondary)' }}>
+                    <div className={nintendoId ? 'status-linked' : 'status-unlinked'}>
                       {nintendoId ? `Linked (ID: ${nintendoId.slice(0, 8)}...)` : 'Not Linked'}
                     </div>
                   </div>
@@ -253,79 +221,78 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                   onClick={startNintendoAuth}
                   disabled={nintendoRelay.loading}
                   className="btn-primary" 
-                  style={{ backgroundColor: nintendoId ? 'transparent' : '#e60012', border: nintendoId ? '1px solid #e60012' : 'none', color: nintendoId ? '#e60012' : 'white', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                  style={{ 
+                    backgroundColor: nintendoId ? 'transparent' : '#e60012', 
+                    border: nintendoId ? '1px solid #e60012' : 'none', 
+                    color: nintendoId ? '#e60012' : 'white', 
+                    padding: '0.4rem 0.8rem', 
+                    fontSize: '0.8rem' 
+                  }}
                 >
                   {nintendoRelay.loading ? <RefreshCw className="animate-spin" size={14} /> : (nintendoId ? 'Reconnect' : 'Link Account')}
                 </button>
               </div>
 
               {nintendoRelay.active && (
-                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(230, 0, 18, 0.05)', borderRadius: '8px', border: '1px solid rgba(230, 0, 18, 0.2)' }}>
-                  <ol style={{ fontSize: '0.85rem', paddingLeft: '1.2rem', color: 'var(--text-primary)', margin: '0 0 1rem 0' }}>
-                    <li style={{ marginBottom: '0.5rem' }}>
-                      <a href={nintendoRelay.authUrl} target="_blank" rel="noreferrer" style={{ color: '#e60012', fontWeight: 'bold' }}>Click here to login to Nintendo</a>
-                    </li>
-                    <li style={{ marginBottom: '0.5rem' }}>On the "Select this person" page, <b>right-click</b> the button and <b>Copy Link Address</b>.</li>
-                    <li>Paste that link below to finish:</li>
+                <div className="nintendo-flow">
+                  <ol>
+                    <li><a href={nintendoRelay.authUrl} target="_blank" rel="noreferrer">Login to Nintendo</a></li>
+                    <li>Right-click "Select this person" and <b>Copy Link Address</b>.</li>
                   </ol>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input 
                       type="text" 
-                      placeholder="Paste npf54789db4251161a4... link here"
+                      placeholder="Paste link here"
                       value={nintendoRelay.link}
                       onChange={(e) => setNintendoRelay(prev => ({ ...prev, link: e.target.value }))}
                       className="search-input"
-                      style={{ fontSize: '0.8rem', flex: 1, marginBottom: 0 }}
                     />
-                    <button onClick={finishNintendoAuth} className="btn-primary" style={{ backgroundColor: '#e60012' }}>Finish</button>
+                    <button onClick={finishNintendoAuth} className="btn-primary">Finish</button>
                   </div>
                 </div>
               )}
             </div>
 
             {/* PlayStation Section */}
-            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#003087', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>P</div>
+            <div className="settings-section">
+              <div className="settings-header">
+                <div className="settings-label-group">
+                  <div className="platform-icon playstation">P</div>
                   <div>
                     <div style={{ fontWeight: 'bold' }}>PlayStation</div>
-                    <div style={{ fontSize: '0.8rem', color: psnId ? '#107c10' : 'var(--text-secondary)' }}>
+                    <div className={psnId ? 'status-linked' : 'status-unlinked'}>
                       {psnId ? `Linked (ID: ${psnId.slice(0, 8)}...)` : 'Not Linked'}
                     </div>
                   </div>
                 </div>
               </div>
-              <div style={{ marginTop: '1rem' }}>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>PSN Account ID (Numeric)</label>
+              <div style={{ marginTop: '0.5rem' }}>
                 <input 
                   type="text" 
                   value={psnId}
                   onChange={(e) => setPsnId(e.target.value)}
-                  placeholder="e.g. 1234567890123456789"
+                  placeholder="PSN Account ID (Numeric)"
                   className="search-input"
-                  style={{ marginBottom: '0.5rem' }}
                 />
-                <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <details className="settings-help">
                   <summary>How do I find my Account ID?</summary>
-                  <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
-                    1. Go to <a href="https://psn.flipscreen.games/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>PSN ID Lookup</a>.<br/>
-                    2. Enter your Online ID (username).<br/>
-                    3. Copy the <b>Numeric Account ID</b> and paste it above.
+                  <div className="help-content">
+                    1. Go to <a href="https://psn.flipscreen.games/" target="_blank" rel="noreferrer">PSN ID Lookup</a>.<br/>
+                    2. Copy the <b>Numeric Account ID</b>.
                   </div>
                 </details>
               </div>
             </div>
 
             {error && (
-              <div style={{ color: '#e60012', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '1rem' }}>
+              <div className="error-message">
                 <AlertCircle size={14} />
                 {error}
               </div>
             )}
 
-            <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-              <button onClick={onClose} className="sort-select" style={{ flex: 1 }}>Close</button>
+            <div className="modal-actions">
+              <button onClick={onClose} className="btn-ghost">Close</button>
               <button 
                 onClick={async () => {
                   setSaving(true);
@@ -375,7 +342,7 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                 }}
                 disabled={saving}
                 className="btn-primary" 
-                style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                style={{ flex: 2 }}
               >
                 {saving ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
                 Sync Library
