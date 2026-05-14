@@ -169,7 +169,7 @@ if (import.meta.main && Deno.args.includes("--sync")) {
   Deno.exit(0);
 }
 
-if (import.meta.main) {
+if (!Deno.env.get("IS_TEST")) {
   Deno.serve(async (req) => {
     try {
       const result = await performPsnSync();

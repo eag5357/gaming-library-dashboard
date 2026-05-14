@@ -89,7 +89,7 @@ async function performNormalization() {
       const strippedSanitized = stripAll(sanitizedTitle);
 
       console.log(`Normalizing: "${title}" -> Search term: "${sanitizedTitle}"`);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       const igdbRes = await fetch("https://api.igdb.com/v4/games", {
         method: "POST",

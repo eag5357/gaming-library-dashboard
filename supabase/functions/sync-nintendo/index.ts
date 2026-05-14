@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+
 export const byteaToString = (bytea: any) => {
    if (!bytea) return null;
    if (typeof bytea === 'string') {
@@ -12,26 +13,16 @@ export const byteaToString = (bytea: any) => {
 }
 
 export async function performNintendoSync() {
-  // @ts-ignore
-  const { addUserAgent } = await import("nxapi");
-  // @ts-ignore
-  const CoralApi = (await import("nxapi/coral")).default;
-  // @ts-ignore
-  const MoonApi = (await import("nxapi/moon")).default;
   const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  console.log("Starting Nintendo sync...");
-
-  // nxapi requires a user agent
-  addUserAgent("GamingLibraryDashboard/1.0.0 (contact@example.com)");
+  console.log("Starting Nintendo sync (Safe/Moon API)...");
 
   const { data: accounts, error: accountsError } = await supabase
     .from("linked_accounts")
     .select("*")
-    .eq("platform_name", "NINTENDO")
-    .order("last_sync_at", { ascending: true, nullsFirst: true });
+    .eq("platform_name", "NINTENDO");
 
   if (accountsError) return { error: "DB Error", details: accountsError };
   if (!accounts || accounts.length === 0) return { message: "No Nintendo accounts to sync." };
@@ -45,102 +36,129 @@ export async function performNintendoSync() {
       let sessionToken = byteaToString(account.session_cookie) || byteaToString(account.access_token);
       
       if (!sessionToken) {
-        const envToken = Deno.env.get("NINTENDO_SESSION_TOKEN");
-        if (envToken) {
-          console.log("Using NINTENDO_SESSION_TOKEN from environment fallback.");
-          sessionToken = envToken;
-        }
+        sessionToken = Deno.env.get("NINTENDO_SESSION_TOKEN") ?? null;
       }
 
       if (!sessionToken) {
-        console.error("No session token found for Nintendo account (DB or ENV).");
+        console.error("No session token found.");
         continue;
       }
 
+      // 1. Exchange Session Token for Access Token (Official Moon Client ID)
+      const tokenRes = await fetch('https://accounts.nintendo.com/connect/1.0.0/api/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'User-Agent': 'NASDKAPI; Android' },
+          body: JSON.stringify({
+              client_id: '54789befb391a838', 
+              session_token: sessionToken,
+              grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer-session-token',
+              scope: 'openid user user.mii moonUser:administration moonDevice:create moonOwnedDevice:administration moonParentalControlSetting moonParentalControlSetting:update moonParentalControlSettingState moonPairingState moonSmartDevice:administration moonDailySummary moonMonthlySummary'
+          })
+      });
+      const tokenData = await tokenRes.json();
+      if (tokenData.error) throw new Error(`Auth Error: ${tokenData.error_description || tokenData.error}`);
+      const moonToken = tokenData.access_token;
+
+      // 2. Get naId
+      const userMeRes = await fetch("https://api.accounts.nintendo.com/2.0.0/users/me", {
+        headers: { "Authorization": `Bearer ${moonToken}` }
+      });
+      const userData = await userMeRes.json();
+      const naId = userData.id;
+
       const titlesMap = new Map();
+      const commonHeaders = { 
+        'Authorization': `Bearer ${moonToken}`, 
+        'User-Agent': 'moon_ANDROID/3.0.0 (com.nintendo.znma; build:1000; ANDROID 33)',
+        'X-Moon-App-Id': 'com.nintendo.znma',
+        'X-Moon-Os': 'ANDROID',
+        'X-Moon-Os-Version': '33',
+        'X-Moon-TimeZone': 'Europe/London',
+        'X-Moon-Os-Language': 'en-GB',
+        'X-Moon-App-Language': 'en-GB',
+        'X-Moon-App-Display-Version': '3.0.0',
+        'X-Moon-App-Internal-Version': '1000',
+      };
 
-      // --- Method 1: Coral (NSO App) ---
-      try {
-        console.log("Fetching from Coral (NSO App)...");
-        const { nso } = await CoralApi.createWithSessionToken(sessionToken);
-        const me = await nso.getMe();
-        
-        // 1. Current Presence
-        if (me.user.presence && me.user.presence.game) {
-           const game = me.user.presence.game;
-           titlesMap.set(game.titleId, {
-              id: game.titleId,
-              name: game.name,
-              playtime: game.totalPlayTime,
-              lastPlayed: me.user.presence.updatedAt * 1000,
-              raw: game
-           });
-        }
+      // 3. Get Devices
+      const devicesResp = await fetch(`https://api-lp1.pctl.srv.nintendo.net/moon/v1/users/${naId}/devices`, {
+          headers: commonHeaders
+      });
+      const devicesData = await devicesResp.json();
+      const devices = devicesData.items || [];
 
-        // 2. Play History (The fix for "include those games")
-        if (me.user.playHistories && Array.isArray(me.user.playHistories)) {
-          console.log(`Found ${me.user.playHistories.length} titles in play history.`);
-          for (const history of me.user.playHistories) {
-            const existing = titlesMap.get(history.titleId);
-            // Only update if we don't have it or if the history has more playtime/recent info
-            if (!existing || existing.playtime < history.totalPlayTime) {
-              titlesMap.set(history.titleId, {
-                id: history.titleId,
-                name: history.titleName,
-                playtime: history.totalPlayTime,
-                lastPlayed: history.lastPlayedAt * 1000,
-                raw: history
-              });
-            }
+      for (const device of devices) {
+          console.log(`Syncing device: ${device.label || 'Switch'}`);
+          
+          // 4. Get Monthly Summaries
+          const summariesResp = await fetch(`https://api-lp1.pctl.srv.nintendo.net/moon/v1/devices/${device.deviceId}/monthly_summaries`, {
+              headers: commonHeaders
+          });
+          const summariesData = await summariesResp.json();
+          
+          if (summariesData.items) {
+              for (const summaryLink of summariesData.items) {
+                  const detailResp = await fetch(`https://api-lp1.pctl.srv.nintendo.net/moon/v1/devices/${device.deviceId}/monthly_summaries/${summaryLink.month}`, {
+                      headers: commonHeaders
+                  });
+                  const detail = await detailResp.json();
+                  if (detail.mostPlayedTitles) {
+                      for (const title of detail.mostPlayedTitles) {
+                          const existing = titlesMap.get(title.titleId);
+                          if (!existing || existing.playtime < title.playTimeMinutes) {
+                              titlesMap.set(title.titleId, { id: title.titleId, name: title.titleName, playtime: title.playTimeMinutes, raw: title });
+                          }
+                      }
+                  }
+              }
           }
-        }
-      } catch (e: any) {
-        console.error("Coral sync failed:", e.message);
-      }
 
-      // --- Method 2: Moon (Parental Controls) ---
-      try {
-        console.log("Fetching from Moon (Parental Controls)...");
-        const { api: moon } = await MoonApi.createWithSessionToken(sessionToken);
-        const devices = await moon.getDevices();
-        
-        for (const device of devices) {
-          console.log(`Fetching stats for device: ${device.label} (${device.deviceId})`);
-          const summaries = await moon.getMonthlySummaries(device.deviceId);
-          for (const month of summaries.items) {
-             for (const title of month.mostPlayedTitles) {
-                const existing = titlesMap.get(title.titleId);
-                const minutes = title.playTimeMinutes;
-                
-                if (!existing || (existing.playtime < minutes)) {
-                   titlesMap.set(title.titleId, {
-                      id: title.titleId,
-                      name: title.titleName,
-                      playtime: minutes,
-                      lastPlayed: null,
-                      raw: title
-                   });
-                }
-             }
+          // 5. Get Daily Summaries
+          const dailyResp = await fetch(`https://api-lp1.pctl.srv.nintendo.net/moon/v1/devices/${device.deviceId}/daily_summaries`, {
+              headers: commonHeaders
+          });
+          const dailyData = await dailyResp.json();
+          if (dailyData.items) {
+              for (const daily of dailyData.items) {
+                  if (daily.devicePlayers) {
+                      for (const player of daily.devicePlayers) {
+                          if (player.playedApps) {
+                              for (const app of player.playedApps) {
+                                  const titleId = app.applicationId;
+                                  const minutes = Math.floor((app.playingTime || 0) / 60);
+                                  const existing = titlesMap.get(titleId);
+                                  if (existing) {
+                                      existing.playtime += minutes;
+                                  } else {
+                                      titlesMap.set(titleId, { id: titleId, name: "Unknown Game", playtime: minutes, raw: app });
+                                  }
+                              }
+                          }
+                      }
+                  }
+                  if (daily.playedApps) {
+                      for (const app of daily.playedApps) {
+                          const existing = titlesMap.get(app.applicationId);
+                          if (existing) {
+                              existing.name = app.title;
+                              existing.raw = { ...existing.raw, ...app };
+                          }
+                      }
+                  }
+              }
           }
-        }
-      } catch (e: any) {
-        console.warn("Moon (Parental Controls) sync failed or not linked:", e.message);
       }
 
       console.log(`Found ${titlesMap.size} unique Nintendo titles.`);
 
       for (const [providerId, gameData] of titlesMap) {
+        console.log(`Syncing title: ${gameData.name} (${providerId}) with ${gameData.playtime} minutes.`);
         const { data: platformGame } = await supabase
           .from("platform_games")
           .upsert({ 
             platform_name: "NINTENDO", 
             provider_game_id: String(providerId), 
-            raw_metadata: {
-              name: gameData.name,
-              titleId: providerId,
-              ...gameData.raw
-            } 
+            raw_metadata: { name: gameData.name, titleId: providerId, ...gameData.raw } 
           }, { onConflict: "platform_name, provider_game_id" })
           .select("id").single();
 
@@ -149,16 +167,12 @@ export async function performNintendoSync() {
             linked_account_id: account.id,
             platform_game_id: platformGame.id,
             playtime_minutes: gameData.playtime,
-            last_played_at: gameData.lastPlayed ? new Date(gameData.lastPlayed).toISOString() : null,
           }, { onConflict: "linked_account_id, platform_game_id" });
           totalSynced++;
         }
       }
 
-      await supabase.from("linked_accounts").update({
-        last_sync_at: new Date().toISOString(),
-        sync_status: "OK"
-      }).eq("id", account.id);
+      await supabase.from("linked_accounts").update({ last_sync_at: new Date().toISOString(), sync_status: "OK" }).eq("id", account.id);
 
     } catch (err: any) {
       console.error(`Account sync error:`, err);

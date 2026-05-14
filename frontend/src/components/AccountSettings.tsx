@@ -18,6 +18,12 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
   const [psnId, setPsnId] = useState('');
   const [nintendoId, setNintendoId] = useState('');
 
+  const [syncStatus, setSyncStatus] = useState<{
+    step: 'idle' | 'saving' | 'syncing' | 'normalizing' | 'done';
+    currentPlatform?: string;
+    progress: number;
+  }>({ step: 'idle', progress: 0 });
+
   useEffect(() => {
     fetchAccounts();
   }, []);
@@ -41,73 +47,58 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
     setLoading(false);
   }
 
-  const [syncStatus, setSyncStatus] = useState<{
-    step: 'idle' | 'saving' | 'syncing' | 'normalizing' | 'done';
-    currentPlatform?: string;
-    progress: number;
-  }>({ step: 'idle', progress: 0 });
+  const [nintendoRelay, setNintendoRelay] = useState<{
+    active: boolean;
+    authUrl: string;
+    state: string;
+    link: string;
+    loading: boolean;
+  }>({ active: false, authUrl: '', state: '', link: '', loading: false });
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    setSyncStatus({ step: 'saving', progress: 10 });
-
-    const platformData = [
-      { name: 'STEAM', id: steamId, function: 'sync-steam' },
-      { name: 'XBOX', id: xboxXuid, function: 'sync-xbox' },
-      { name: 'PLAYSTATION', id: psnId, function: 'sync-psn' },
-      { name: 'NINTENDO', id: nintendoId, function: 'sync-nintendo' }
-    ].filter(p => p.id.trim() !== '');
-
+  const startNintendoAuth = async () => {
+    setNintendoRelay(prev => ({ ...prev, loading: true }));
     try {
-      // 1. Save IDs
-      for (const p of platformData) {
-        const { error } = await supabase
-          .from('linked_accounts')
-          .upsert({
-            user_id: userId,
-            platform_name: p.name as any,
-            provider_account_id: p.id
-          }, { onConflict: 'user_id, platform_name, provider_account_id' });
-        
-        if (error) throw error;
-      }
-      
-      setSyncStatus({ step: 'syncing', progress: 30 });
-
-      // 2. Trigger Sync Functions
-      for (let i = 0; i < platformData.length; i++) {
-        const p = platformData[i];
-        setSyncStatus(prev => ({ ...prev, currentPlatform: p.name, progress: 30 + (i * 20) }));
-        
-        try {
-          const { error: syncError } = await supabase.functions.invoke(p.function);
-          if (syncError) console.warn(`Could not trigger ${p.function} automatically:`, syncError);
-        } catch (e) {
-          console.warn(`Function ${p.function} invocation failed.`);
-        }
-      }
-
-      setSyncStatus({ step: 'normalizing', progress: 80 });
-      try {
-        await supabase.functions.invoke('normalize-games');
-      } catch (e) {
-        console.warn("Normalization trigger failed.");
-      }
-
-      setSyncStatus({ step: 'done', progress: 100 });
-      setTimeout(() => {
-        onSync();
-        onClose();
-      }, 1500);
-
-    } catch (err: any) {
-      setError(err.message);
-      setSyncStatus({ step: 'idle', progress: 0 });
-    } finally {
-      setSaving(false);
+      const res = await supabase.functions.invoke('auth-nintendo', {
+        method: 'GET',
+        headers: { 'params': JSON.stringify({ action: 'login', user_id: userId }) }
+      });
+      const data = res.data;
+      setNintendoRelay({ active: true, authUrl: data.authUrl, state: data.state, link: '', loading: false });
+    } catch (err) {
+      setError("Failed to start Nintendo authentication.");
+      setNintendoRelay(prev => ({ ...prev, loading: false }));
     }
+  };
+
+  const finishNintendoAuth = async () => {
+    setNintendoRelay(prev => ({ ...prev, loading: true }));
+    try {
+      const { data, error: funcError } = await supabase.functions.invoke('auth-nintendo', {
+        body: { 
+          action: 'callback', 
+          link: nintendoRelay.link, 
+          state: nintendoRelay.state, 
+          user_id: userId 
+        }
+      });
+      if (funcError) throw funcError;
+      setNintendoId(data.nintendoId);
+      setNintendoRelay({ active: false, authUrl: '', state: '', link: '', loading: false });
+      fetchAccounts();
+    } catch (err: any) {
+      setError(err.message || "Failed to link Nintendo account.");
+      setNintendoRelay(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const handleLinkSteam = () => {
+    const publicUrl = import.meta.env.VITE_SUPABASE_URL.replace("http://kong:", "http://127.0.0.1:");
+    window.location.href = `${publicUrl}/functions/v1/auth-steam?action=login&user_id=${userId}`;
+  };
+
+  const handleLinkXbox = () => {
+    const publicUrl = import.meta.env.VITE_SUPABASE_URL.replace("http://kong:", "http://127.0.0.1:");
+    window.location.href = `${publicUrl}/functions/v1/auth-xbox?action=login&user_id=${userId}`;
   };
 
   const renderStatus = () => {
@@ -115,7 +106,7 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
 
     const labels = {
       saving: 'Saving account IDs...',
-      syncing: `Syncing ${syncStatus.currentPlatform}...`,
+      syncing: `Syncing your library...`,
       normalizing: 'Normalizing library metadata...',
       done: 'Library sync complete!'
     };
@@ -157,9 +148,11 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
         padding: '2rem',
         borderRadius: '16px',
         width: '100%',
-        maxWidth: '500px',
+        maxWidth: '550px',
         border: '1px solid var(--border)',
-        position: 'relative'
+        position: 'relative',
+        maxHeight: '90vh',
+        overflowY: 'auto'
       }}>
         <button onClick={onClose} style={{
           position: 'absolute',
@@ -173,102 +166,211 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
           <X size={24} />
         </button>
 
-        <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          Account Linking
-        </h2>
+        <h2 style={{ marginBottom: '1.5rem' }}>Library Integration</h2>
 
         {loading ? (
           <div>Loading accounts...</div>
         ) : (
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="input-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Steam ID</label>
-              <input
-                type="text"
-                placeholder="64-bit Steam ID (e.g. 76561198...)"
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            
+            {/* Steam Section */}
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#171a21', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>S</div>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>Steam</div>
+                    <div style={{ fontSize: '0.8rem', color: steamId ? '#107c10' : 'var(--text-secondary)' }}>
+                      {steamId ? `Linked (ID: ${steamId.slice(0, 8)}...)` : 'Not Linked'}
+                    </div>
+                  </div>
+                </div>
+                <button type="button" onClick={handleLinkSteam} className="btn-primary" style={{ backgroundColor: 'transparent', border: '1px solid #171a21', color: '#171a21', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                  Auto-Link
+                </button>
+              </div>
+              <input 
+                type="text" 
                 value={steamId}
                 onChange={(e) => setSteamId(e.target.value)}
+                placeholder="SteamID64 (e.g. 7656119...)"
                 className="search-input"
-                style={{ width: '100%', marginBottom: 0 }}
+                style={{ marginBottom: '0.5rem' }}
               />
+              <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <summary>How do I find my Steam ID?</summary>
+                <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
+                  Go to <a href="https://steamid.io/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>SteamID.io</a> and enter your profile URL. Copy the <b>SteamID64</b>.
+                </div>
+              </details>
             </div>
 
-            <div className="input-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Xbox XUID</label>
-              <input
-                type="text"
-                placeholder="Numeric XUID (e.g. 253542...)"
+            {/* Xbox Section */}
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#107c10', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>X</div>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>Xbox</div>
+                    <div style={{ fontSize: '0.8rem', color: xboxXuid ? '#107c10' : 'var(--text-secondary)' }}>
+                      {xboxXuid ? `Linked (ID: ${xboxXuid.slice(0, 8)}...)` : 'Not Linked'}
+                    </div>
+                  </div>
+                </div>
+                <button type="button" onClick={handleLinkXbox} className="btn-primary" style={{ backgroundColor: 'transparent', border: '1px solid #107c10', color: '#107c10', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                  Auto-Link
+                </button>
+              </div>
+              <input 
+                type="text" 
                 value={xboxXuid}
                 onChange={(e) => setXboxXuid(e.target.value)}
+                placeholder="Xbox XUID (Numeric)"
                 className="search-input"
-                style={{ width: '100%', marginBottom: 0 }}
+                style={{ marginBottom: '0.5rem' }}
               />
+              <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <summary>How do I find my Xbox XUID?</summary>
+                <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
+                  Sign in to <a href="https://xbl.io/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>xbl.io</a>. Your <b>XUID</b> will be visible on your profile page.
+                </div>
+              </details>
+            </div>
+            
+            {/* Nintendo Flow */}
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#e60012', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>N</div>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>Nintendo</div>
+                    <div style={{ fontSize: '0.8rem', color: nintendoId ? '#107c10' : 'var(--text-secondary)' }}>
+                      {nintendoId ? `Linked (ID: ${nintendoId.slice(0, 8)}...)` : 'Not Linked'}
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={startNintendoAuth}
+                  disabled={nintendoRelay.loading}
+                  className="btn-primary" 
+                  style={{ backgroundColor: nintendoId ? 'transparent' : '#e60012', border: nintendoId ? '1px solid #e60012' : 'none', color: nintendoId ? '#e60012' : 'white', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                >
+                  {nintendoRelay.loading ? <RefreshCw className="animate-spin" size={14} /> : (nintendoId ? 'Reconnect' : 'Link Account')}
+                </button>
+              </div>
+
+              {nintendoRelay.active && (
+                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(230, 0, 18, 0.05)', borderRadius: '8px', border: '1px solid rgba(230, 0, 18, 0.2)' }}>
+                  <ol style={{ fontSize: '0.85rem', paddingLeft: '1.2rem', color: 'var(--text-primary)', margin: '0 0 1rem 0' }}>
+                    <li style={{ marginBottom: '0.5rem' }}>
+                      <a href={nintendoRelay.authUrl} target="_blank" rel="noreferrer" style={{ color: '#e60012', fontWeight: 'bold' }}>Click here to login to Nintendo</a>
+                    </li>
+                    <li style={{ marginBottom: '0.5rem' }}>On the "Select this person" page, <b>right-click</b> the button and <b>Copy Link Address</b>.</li>
+                    <li>Paste that link below to finish:</li>
+                  </ol>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Paste npf54789db4251161a4... link here"
+                      value={nintendoRelay.link}
+                      onChange={(e) => setNintendoRelay(prev => ({ ...prev, link: e.target.value }))}
+                      className="search-input"
+                      style={{ fontSize: '0.8rem', flex: 1, marginBottom: 0 }}
+                    />
+                    <button onClick={finishNintendoAuth} className="btn-primary" style={{ backgroundColor: '#e60012' }}>Finish</button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="input-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>PSN Account ID</label>
-              <input
-                type="text"
-                placeholder="Numeric Account ID (not Online ID)"
-                value={psnId}
-                onChange={(e) => setPsnId(e.target.value)}
-                className="search-input"
-                style={{ width: '100%', marginBottom: 0 }}
-              />
-            </div>
-
-            <div className="input-group">
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Nintendo Account ID</label>
-              <input
-                type="text"
-                placeholder="16-character hex ID"
-                value={nintendoId}
-                onChange={(e) => setNintendoId(e.target.value)}
-                className="search-input"
-                style={{ width: '100%', marginBottom: 0 }}
-              />
+            {/* PlayStation Section */}
+            <div style={{ padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#003087', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>P</div>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>PlayStation</div>
+                    <div style={{ fontSize: '0.8rem', color: psnId ? '#107c10' : 'var(--text-secondary)' }}>
+                      {psnId ? `Linked (ID: ${psnId.slice(0, 8)}...)` : 'Not Linked'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: '1rem' }}>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>PSN Account ID (Numeric)</label>
+                <input 
+                  type="text" 
+                  value={psnId}
+                  onChange={(e) => setPsnId(e.target.value)}
+                  placeholder="e.g. 1234567890123456789"
+                  className="search-input"
+                  style={{ marginBottom: '0.5rem' }}
+                />
+                <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                  <summary>How do I find my Account ID?</summary>
+                  <div style={{ padding: '0.5rem', borderLeft: '2px solid var(--accent)', marginLeft: '0.5rem', marginTop: '0.5rem' }}>
+                    1. Go to <a href="https://psn.flipscreen.games/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>PSN ID Lookup</a>.<br/>
+                    2. Enter your Online ID (username).<br/>
+                    3. Copy the <b>Numeric Account ID</b> and paste it above.
+                  </div>
+                </details>
+              </div>
             </div>
 
             {error && (
-              <div style={{ color: '#e60012', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <div style={{ color: '#e60012', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', marginTop: '1rem' }}>
                 <AlertCircle size={14} />
                 {error}
               </div>
             )}
 
-            {renderStatus()}
+            <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+              <button onClick={onClose} className="sort-select" style={{ flex: 1 }}>Close</button>
+              <button 
+                onClick={async () => {
+                  setSaving(true);
+                  
+                  // Save all IDs
+                  const platforms = [
+                    { name: 'STEAM', id: steamId },
+                    { name: 'XBOX', id: xboxXuid },
+                    { name: 'PLAYSTATION', id: psnId },
+                    { name: 'NINTENDO', id: nintendoId }
+                  ];
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button
-                type="button"
-                onClick={onClose}
-                className="sort-select"
-                style={{ flex: 1, padding: '0.75rem', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="sort-select"
-                style={{ 
-                  flex: 1, 
-                  padding: '0.75rem', 
-                  cursor: 'pointer',
-                  backgroundColor: 'var(--accent)',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px'
+                  for (const p of platforms) {
+                    if (p.id) {
+                      await supabase.from('linked_accounts').upsert({
+                        user_id: userId,
+                        platform_name: p.name,
+                        provider_account_id: p.id,
+                        sync_status: 'OK'
+                      }, { onConflict: 'user_id, platform_name' });
+                    }
+                  }
+                  
+                  // Trigger master sync for all linked accounts
+                  setSyncStatus({ step: 'syncing', progress: 50 });
+                  const { data, error: syncError } = await supabase.functions.invoke('sync-all');
+                  
+                  if (syncError) {
+                    setError("Sync failed: " + (syncError.message || "Unknown error"));
+                    setSyncStatus({ step: 'idle', progress: 0 });
+                  } else {
+                    setSyncStatus({ step: 'done', progress: 100 });
+                    setTimeout(() => { onSync(); onClose(); }, 1000);
+                  }
                 }}
+                disabled={saving}
+                className="btn-primary" 
+                style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
               >
                 {saving ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
-                Save & Sync
+                Sync Library
               </button>
             </div>
-          </form>
+            {renderStatus()}
+          </div>
         )}
       </div>
     </div>

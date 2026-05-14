@@ -45,6 +45,7 @@ export async function performSteamSync() {
     await supabase.from("linked_accounts").update({ last_sync_at: new Date().toISOString(), sync_status: "OK" }).eq("id", account.id);
     syncedCount++;
   }
+
   return { success: true, count: syncedCount };
 }
 
@@ -54,7 +55,7 @@ if (import.meta.main && Deno.args.includes("--sync")) {
   Deno.exit(0);
 }
 
-if (import.meta.main) {
+if (!Deno.env.get("IS_TEST")) {
   Deno.serve(async (req) => {
     try {
       const result = await performSteamSync();

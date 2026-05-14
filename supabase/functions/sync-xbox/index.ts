@@ -95,6 +95,7 @@ export async function performXboxSync() {
       await new Promise(resolve => setTimeout(resolve, 300));
     }
   }
+
   return { success: true, count: totalSynced };
 }
 
@@ -104,13 +105,13 @@ if (import.meta.main && Deno.args.includes("--sync")) {
   Deno.exit(0);
 }
 
-if (import.meta.main) {
+if (!Deno.env.get("IS_TEST")) {
   Deno.serve(async (req) => {
     try {
       const result = await performXboxSync();
       return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
-    } catch (error: any) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: String(error) }), { status: 500 });
     }
   });
 }

@@ -139,7 +139,14 @@ async function performNintendoSync() {
           }
         }
       } catch (e) {
-        console.warn("Moon (Parental Controls) sync failed or not linked:", e.message);
+        console.warn("Moon (Parental Controls) sync failed or not linked:", e);
+        if (e.response) {
+            console.warn("Moon Response Status:", e.response.status);
+            try {
+              const body = await e.response.json();
+              console.warn("Moon Response Body:", JSON.stringify(body, null, 2));
+            } catch (jsonErr) {}
+        }
       }
 
       console.log(`Found ${titlesMap.size} unique Nintendo titles.`);

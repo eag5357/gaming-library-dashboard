@@ -1,105 +1,85 @@
-# A string used to distinguish different Supabase projects on the same host. Defaults to the
-# working directory name when running `supabase init`.
 project_id = "gaming-library-dashboard"
 
 [api]
 enabled = true
-# Port to use for the API URL.
 port = 54321
-# Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
-# endpoints. public and storage are always included.
 schemas = ["public", "storage", "graphql_public"]
-# Extra schemas to add to the search_path of every request. public is always included.
 extra_search_path = ["public", "extensions"]
-# The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
-# for accidental or malicious requests.
 max_rows = 1000
 
 [db]
-# Port to use for the local database URL.
 port = 54322
-# Port to use for the local database shadow URL.
 shadow_port = 54320
-# The database major version to use. This has to be the same as your remote database's. Run `SHOW
-# server_version;` on the remote database to check.
 major_version = 15
 
 [db.pooler]
 enabled = false
-# Port to use for the local connection pooler.
 port = 54329
-# Specifies when a server connection can be reused by other clients.
-# Configure one of the supported pooler routing modes: 'transaction', 'session'.
 pool_mode = "transaction"
 
 [edge_runtime]
 enabled = true
-# URL to a local Deno inspector. Use it for debugging Edge Functions.
 inspector_port = 8083
 
 [auth]
 enabled = true
-# A list of allowed redirect URLs for the user's application.
 site_url = "http://127.0.0.1:3000"
-# A list of allowed redirect URLs for the user's application.
 additional_redirect_urls = ["https://127.0.0.1:3000"]
-# Set the token expiry in seconds.
 jwt_expiry = 3600
-# Allow/disallow new user signups to your project.
 enable_signup = true
-# Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 
 [auth.email]
-# Allow/disallow new user signups via email to your project.
 enable_signup = true
-# If enabled, a user will be required to confirm any email change on both the old, and new email
-# addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
-# If enabled, users need to confirm their email address before signing in.
 enable_confirmations = false
 
 [studio]
 enabled = true
-# Port to use for Supabase Studio.
 port = 54323
-# External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
 
-# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
-# are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
 enabled = true
-# Port to use for the email testing server web interface.
 port = 54324
-# Port to use for the email testing server SMTP API.
 smtp_port = 54325
-# Port to use for the email testing server POP3 API.
 pop3_port = 54326
 
 [storage]
 enabled = true
-# The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "52428800"
 
 [functions.normalize-games]
 enabled = true
 verify_jwt = true
 import_map = "./functions/normalize-games/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/normalize-games/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/normalize-games/*.html" ]
 
 [functions.sync-xbox]
 enabled = true
 verify_jwt = true
 import_map = "./functions/sync-xbox/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/sync-xbox/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/sync-xbox/*.html" ]
+
+[functions.nintendo-auth]
+enabled = true
+verify_jwt = true
+import_map = "./functions/nintendo-auth/deno.json"
+entrypoint = "./functions/nintendo-auth/index.ts"
+
+[functions.auth-steam]
+enabled = true
+verify_jwt = true
+import_map = "./functions/auth-steam/deno.json"
+entrypoint = "./functions/auth-steam/index.ts"
+
+[functions.auth-xbox]
+enabled = true
+verify_jwt = true
+import_map = "./functions/auth-xbox/deno.json"
+entrypoint = "./functions/auth-xbox/index.ts"
+
+[functions.sync-all]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/sync-all/index.ts"

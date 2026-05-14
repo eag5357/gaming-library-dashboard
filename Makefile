@@ -20,11 +20,13 @@ test-frontend:
 # Supabase Edge Functions tests using Deno
 test-functions:
 	@echo "Running Supabase Edge Functions tests..."
-	deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/normalize-games/index_test.ts
-	deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-steam/index_test.ts
-	deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-xbox/index_test.ts
-	deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-psn/index_test.ts
-	deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-nintendo/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/normalize-games/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-steam/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-xbox/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-psn/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-nintendo/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/auth-xbox/index_test.ts
+	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-all/index_test.ts
 
 # Alias for test-all
 test: test-all

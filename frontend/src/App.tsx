@@ -32,6 +32,18 @@ function App() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
+        
+        // Handle auth redirects
+        const url = new URL(window.location.href);
+        const authStatus = url.searchParams.get('auth');
+        const platform = url.searchParams.get('platform');
+        
+        if (authStatus === 'success') {
+          // Clear params without reloading
+          window.history.replaceState({}, document.title, "/");
+          fetchGames();
+          // We could add a toast here
+        }
       } catch (err: any) {
         console.error("Auth initialization error:", err);
         setError("Failed to initialize authentication.");
