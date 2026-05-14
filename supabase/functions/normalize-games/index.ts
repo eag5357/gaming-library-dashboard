@@ -35,7 +35,7 @@ async function performNormalization() {
     .from("platform_games")
     .select("id, raw_metadata")
     .is("game_id", null)
-    .limit(100); 
+    .limit(500); 
 
   if (fetchError) throw fetchError;
   if (!unlinkedGames || unlinkedGames.length === 0) return { message: "No games left to normalize." };

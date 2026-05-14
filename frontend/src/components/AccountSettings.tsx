@@ -351,11 +351,23 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                   
                   // Trigger master sync for all linked accounts
                   setSyncStatus({ step: 'syncing', progress: 50 });
-                  const { error: syncError } = await supabase.functions.invoke('sync-all');
+                  const { data, error: syncError } = await supabase.functions.invoke('sync-all');
                   
                   if (syncError) {
                     setError("Sync failed: " + (syncError.message || "Unknown error"));
                     setSyncStatus({ step: 'idle', progress: 0 });
+                  } else if (data?.results) {
+                    const failures = Object.entries(data.results)
+                      .filter(([_, res]: any) => res.error)
+                      .map(([platform]) => platform);
+                    
+                    if (failures.length > 0) {
+                      setError(`Sync partially failed for: ${failures.join(', ')}. Check Supabase logs.`);
+                      setSyncStatus({ step: 'idle', progress: 0 });
+                    } else {
+                      setSyncStatus({ step: 'done', progress: 100 });
+                      setTimeout(() => { onSync(); onClose(); }, 1500);
+                    }
                   } else {
                     setSyncStatus({ step: 'done', progress: 100 });
                     setTimeout(() => { onSync(); onClose(); }, 1000);

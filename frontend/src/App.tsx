@@ -208,6 +208,12 @@ function App() {
 
       {loading ? (
         <div className="loading">Updating Stats...</div>
+      ) : sortedAndFilteredGames.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-secondary)' }}>
+          <Gamepad2 size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
+          <h3>Your library is empty</h3>
+          <p>Go to settings to link your accounts and sync your games.</p>
+        </div>
       ) : (
         <div className="game-grid">
           {sortedAndFilteredGames.map((game) => (

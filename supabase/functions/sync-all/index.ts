@@ -29,8 +29,9 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.functions.invoke(platform);
       if (error) {
         console.error(`Error invoking ${platform}:`, error);
-        results[platform] = { error: error.message };
+        results[platform] = { error: error.message || error };
       } else {
+        console.log(`Success: ${platform} synced ${data.count || 0} items.`);
         results[platform] = data;
       }
     } catch (e: any) {
@@ -47,8 +48,9 @@ Deno.serve(async (req) => {
     const { data: normData, error: normError } = await supabase.functions.invoke('normalize-games');
     if (normError) {
       console.error("Master Normalization failed:", normError);
-      results["normalization"] = { error: normError.message };
+      results["normalization"] = { error: normError.message || normError };
     } else {
+      console.log(`Success: Normalized ${normData.count || 0} games.`);
       results["normalization"] = normData;
     }
   } catch (e: any) {
