@@ -1,11 +1,18 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
 
 const PLATFORMS = ["sync-steam", "sync-xbox", "sync-psn", "sync-nintendo"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (!isAuthorized(req)) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+      status: 401, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
