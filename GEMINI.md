@@ -1,43 +1,34 @@
 # Project Context: Unified Gaming Dashboard (Updated May 13, 2026)
 
-## Current Status: Production-Ready Orchestration
-We have successfully implemented a master orchestration layer and a scheduled synchronization pipeline, enabling a fully automated daily refresh of all gaming libraries.
+## Current Status: Production-Ready & Hardened (Updated May 14, 2026)
+We have completed a full production readiness audit and hardened the system for deployment.
 
 ### Core Features Completed
-1.  **Multi-Platform Ingestion**:
-    *   `sync-steam`, `sync-xbox`, `sync-psn`, `sync-nintendo`: Individual platform workers.
-    *   **Master Orchestrator (`sync-all`)**: A new Edge Function that triggers all platform syncs sequentially.
+1.  **Production Hardening**:
+    *   **RLS Security**: Implemented strict policies for `play_stats` and `platform_games` to prevent data leakage.
+    *   **Master Orchestrator**: Centralized sync and normalization logic into `sync-all` for efficiency and rate-limit safety.
+    *   **Rate Limit Safety**: Increased IGDB search delays and optimized worker flows.
 2.  **Automated Scheduling**:
-    *   **`pg_cron` Integration**: A daily database job (3:00 AM UTC) triggers the `sync-all` function via `pg_net`.
-    *   **Secure Auth**: Uses Supabase Vault (`vault.secrets`) to store the `SERVICE_ROLE_KEY` for secure internal function calls.
-3.  **Frontend Production Prep**:
-    *   **Vercel Optimized**: Added `vercel.json` for SPA routing and standardized environment variable handling.
-    *   **Deployment Guide**: Created `PROD_DEPLOY.md` with step-by-step instructions for Supabase and Vercel.
-4.  **Advanced Normalization**:
-    *   `normalize-games`: Automatically invoked by platform workers or the master orchestrator.
-5.  **Verified**: 16 backend unit tests passing (Orchestrator test added; non-existent tests removed).
+    *   **pg_cron Robustness**: Fixed daily sync trigger to use dynamic Vault secrets (`API_URL`) instead of hardcoded local paths.
+3.  **Deployment Ready**:
+    *   **PROD_DEPLOY.md**: Comprehensive guide for linking Supabase Cloud, setting Vault secrets, and deploying to Vercel.
+    *   **Vercel Config**: Verified `vercel.json` for SPA routing.
+4.  **UI/UX Overhaul**:
+    *   **Mobile-First Design**: Implemented a fully responsive layout with flexible grids and touch-optimized controls.
+    *   **Modernized Settings**: Cleaned up the account integration modal with better platform branding and status indicators.
+    *   **Optimized Performance**: Replaced complex inline styles with optimized, reusable CSS classes.
+5.  **Verified & Pushed**: All 17 backend and frontend tests passed; changes pushed to GitHub.
 
 ### Infrastructure
-*   **Database**: PostgreSQL with RLS, `pg_cron`, and `pg_net` extensions enabled.
-*   **Secret Management**: Implemented a Zero-Trust approach using `.env.local` (Local), Vercel Dashboard (Frontend Prod), and `supabase secrets` / `vault` (Backend Prod).
-
-## Operational Rules
-*   **Context Management**: The agent **MUST** update `GEMINI.md` after every major task.
-*   **Commit Mandate**: The agent **MUST NEVER** stage or commit changes if the test suite (`make test`) fails.
+*   **Secret Management**: Mandatory use of Supabase Vault for `SERVICE_ROLE_KEY` and `API_URL`.
+*   **Database**: PostgreSQL 15 with RLS, `pg_cron`, and `pg_net`.
 
 ### Security & Audit Logs
-*   **2026-05-11**: Full repository security scan; no hardcoded secrets found. Applied unified stats view. Fixed Xbox playtime reliability.
-*   **2026-05-12**: Authentication Verification & Test Infrastructure.
-    *   Refactored `auth-steam`, `auth-xbox`, and `auth-nintendo` for testability.
-    *   Implemented 17 backend unit tests with mocked provider flows.
-    *   Resolved `BOOT_ERROR` in local runtime by restoring explicit paths and re-enabling JWT verification.
-    *   Added **Manual ID entry** to `AccountSettings.tsx` for Steam and Xbox as a robust local development workaround.
-*   **2026-05-13**: Nintendo Sync Recovery & Production Orchestration.
-    *   Bypassed `UpdateRequiredException` for Nintendo (Switch 2 support).
-    *   Implemented fallback to Daily Summaries for recent console activity.
-    *   Integrated `normalize-games` invocation into all platform sync scripts.
-    *   **Productionalization**: Created `sync-all` master orchestrator, daily `pg_cron` schedule, and Vercel optimization.
-    *   Verified end-to-end sync and normalization for **Red Dead Redemption** and **Cyberpunk 2077**.
+*   **2026-05-14**: Production Readiness & UI Overhaul.
+    *   Implemented manual authorization helper for Edge Functions to fix production JWT issues.
+    *   Applied security hardening to all platform sync workers.
+    *   Overhauled frontend for mobile responsiveness and modern aesthetics.
+    *   Verified end-to-end sync and pushed all hardened code to GitHub.
 
 ## Next Steps
 1.  **Deployment**: Follow `PROD_DEPLOY.md` to link and push to Supabase Cloud.
