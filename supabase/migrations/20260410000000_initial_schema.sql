@@ -10,7 +10,7 @@ CREATE TYPE sync_status_enum AS ENUM ('OK', 'AUTH_FAILED', 'RATE_LIMITED');
 
 -- 1. linked_accounts
 CREATE TABLE public.linked_accounts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform_name platform_name_enum NOT NULL,
     provider_account_id VARCHAR(255) NOT NULL,
     access_token BYTEA,
@@ -25,7 +25,7 @@ CREATE TABLE public.linked_accounts (
 
 -- 2. games (Unified Catalog)
 CREATE TABLE public.games (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     normalized_title VARCHAR(255) NOT NULL,
     display_title VARCHAR(255) NOT NULL,
     cover_image_url TEXT,
@@ -39,7 +39,7 @@ CREATE INDEX idx_games_normalized_title ON public.games(normalized_title);
 
 -- 3. platform_games
 CREATE TABLE public.platform_games (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform_name platform_name_enum NOT NULL,
     provider_game_id VARCHAR(255) NOT NULL,
     game_id UUID REFERENCES public.games(id) ON DELETE SET NULL,
@@ -51,7 +51,7 @@ CREATE TABLE public.platform_games (
 
 -- 4. play_stats
 CREATE TABLE public.play_stats (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     linked_account_id UUID NOT NULL REFERENCES public.linked_accounts(id) ON DELETE CASCADE,
     platform_game_id UUID NOT NULL REFERENCES public.platform_games(id) ON DELETE CASCADE,
     playtime_minutes INTEGER DEFAULT 0,
