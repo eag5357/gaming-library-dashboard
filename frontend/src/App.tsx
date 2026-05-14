@@ -36,7 +36,6 @@ function App() {
         // Handle auth redirects
         const url = new URL(window.location.href);
         const authStatus = url.searchParams.get('auth');
-        const platform = url.searchParams.get('platform');
         
         if (authStatus === 'success') {
           // Clear params without reloading

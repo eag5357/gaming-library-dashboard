@@ -351,7 +351,7 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                   
                   // Trigger master sync for all linked accounts
                   setSyncStatus({ step: 'syncing', progress: 50 });
-                  const { data, error: syncError } = await supabase.functions.invoke('sync-all');
+                  const { error: syncError } = await supabase.functions.invoke('sync-all');
                   
                   if (syncError) {
                     setError("Sync failed: " + (syncError.message || "Unknown error"));
