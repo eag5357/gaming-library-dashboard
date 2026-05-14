@@ -36,13 +36,14 @@ BEGIN
   -- In production, the user should ensure their project reference is correct.
   PERFORM
     net.http_post(
-      url := (SELECT COALESCE(
+      url := (SELECT rtrim(COALESCE(
         (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'API_URL' LIMIT 1),
         'http://host.docker.internal:54321' -- Local fallback
-      )) || '/functions/v1/sync-all',
+      ), '/') || '/functions/v1/sync-all'),
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || COALESCE(service_role_key, '')
+        'Authorization', 'Bearer ' || COALESCE(service_role_key, ''),
+        'apikey', COALESCE(service_role_key, '')
       ),
       body := '{}'::jsonb
     );
@@ -56,3 +57,9 @@ SELECT cron.schedule(
   '0 3 * * *',
   'SELECT trigger_master_sync();'
 );
+
+-- Security: Restrict execution of the sync function
+-- This prevents regular users from triggering global syncs via SQL
+REVOKE EXECUTE ON FUNCTION trigger_master_sync() FROM public;
+GRANT EXECUTE ON FUNCTION trigger_master_sync() TO service_role;
+GRANT EXECUTE ON FUNCTION trigger_master_sync() TO postgres;

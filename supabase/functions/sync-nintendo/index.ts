@@ -1,29 +1,19 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
-import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient } from "../_shared/cors.ts";
 
-export const byteaToString = (bytea: any) => {
-   if (!bytea) return null;
-   if (typeof bytea === 'string') {
-      if (bytea.startsWith('\\x')) {
-        const hex = bytea.slice(2);
-        return new TextDecoder().decode(Uint8Array.from(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))));
-      }
-      return bytea;
-   }
-   return new TextDecoder().decode(bytea);
-}
-
-export async function performNintendoSync() {
-  const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+export async function performNintendoSync(targetUserId?: string) {
+  const supabase = getSupabaseClient();
   console.log("Starting Nintendo sync (Safe/Moon API)...");
 
-  const { data: accounts, error: accountsError } = await supabase
+  let query = supabase
     .from("linked_accounts")
     .select("*")
     .eq("platform_name", "NINTENDO");
+
+  if (targetUserId) {
+    query = query.eq("user_id", targetUserId);
+  }
+
+  const { data: accounts, error: accountsError } = await query;
 
   if (accountsError) return { error: "DB Error", details: accountsError };
   if (!accounts || accounts.length === 0) return { message: "No Nintendo accounts to sync." };
@@ -153,8 +143,8 @@ export async function performNintendoSync() {
       console.log(`Found ${titlesMap.size} unique Nintendo titles.`);
 
       for (const [providerId, gameData] of titlesMap) {
-        console.log(`Syncing title: ${gameData.name} (${providerId}) with ${gameData.playtime} minutes.`);
-        const { data: platformGame } = await supabase
+        console.log(`[NINTENDO] Syncing: ${gameData.name} (${providerId}) -> ${gameData.playtime} mins`);
+        const { data: platformGame, error: pgError } = await supabase
           .from("platform_games")
           .upsert({ 
             platform_name: "NINTENDO", 
@@ -163,13 +153,23 @@ export async function performNintendoSync() {
           }, { onConflict: "platform_name, provider_game_id" })
           .select("id").single();
 
+        if (pgError) {
+          console.error(`Error upserting platform_game for ${gameData.name}:`, pgError);
+          continue;
+        }
+
         if (platformGame) {
-          await supabase.from("play_stats").upsert({
+          const { error: psError } = await supabase.from("play_stats").upsert({
             linked_account_id: account.id,
             platform_game_id: platformGame.id,
             playtime_minutes: gameData.playtime,
           }, { onConflict: "linked_account_id, platform_game_id" });
-          totalSynced++;
+          
+          if (psError) {
+             console.error(`Error upserting play_stats for ${gameData.name}:`, psError);
+          } else {
+             totalSynced++;
+          }
         }
       }
 
@@ -196,7 +196,8 @@ if (import.meta.main) {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!(await isAuthorized(req))) {
+    const authContext = await getAuthContext(req);
+    if (!authContext) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { 
         status: 401, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -204,7 +205,8 @@ if (import.meta.main) {
     }
 
     try {
-      const result = await performNintendoSync();
+      const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
+      const result = await performNintendoSync(targetUserId);
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

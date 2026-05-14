@@ -1,22 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
 
-export async function performSteamSync() {
+export async function performSteamSync(targetUserId?: string) {
   const STEAM_API_KEY = Deno.env.get("STEAM_API_KEY") ?? "";
-  const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
+  
   if (!STEAM_API_KEY) {
     throw new Error("STEAM_API_KEY is not configured");
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = getSupabaseClient();
   console.log("Starting Steam sync...");
 
-  const { data: accounts, error: accountsError } = await supabase
+  let query = supabase
     .from("linked_accounts")
     .select("*")
     .eq("platform_name", "STEAM");
+
+  if (targetUserId) {
+    query = query.eq("user_id", targetUserId);
+  }
+
+  const { data: accounts, error: accountsError } = await query;
 
   if (accountsError) throw accountsError;
   if (!accounts || accounts.length === 0) return { message: "No accounts" };
@@ -62,7 +66,8 @@ if (!Deno.env.get("IS_TEST")) {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!(await isAuthorized(req))) {
+    const authContext = await getAuthContext(req);
+    if (!authContext) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { 
         status: 401, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -70,7 +75,8 @@ if (!Deno.env.get("IS_TEST")) {
     }
 
     try {
-      const result = await performSteamSync();
+      const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
+      const result = await performSteamSync(targetUserId);
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

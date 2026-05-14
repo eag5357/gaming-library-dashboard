@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
-import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
 
 const PLATFORMS = ["sync-steam", "sync-xbox", "sync-psn", "sync-nintendo"];
 
@@ -8,35 +8,30 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!(await isAuthorized(req))) {
+  const authContext = await getAuthContext(req);
+  if (!authContext) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { 
       status: 401, 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
   }
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return new Response(JSON.stringify({ error: "Missing Supabase configuration" }), { status: 500 });
-  }
-
-  // Ensure internal URL is correct for local vs production
-  const supabaseUrl = SUPABASE_URL.replace("http://kong:", "http://127.0.0.1:");
-  const supabase = createClient(supabaseUrl, SUPABASE_SERVICE_ROLE_KEY);
-
+  const supabase = getSupabaseClient();
   console.log("Master Sync started at:", new Date().toISOString());
 
   const results: Record<string, any> = {};
+  const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
 
   for (const platform of PLATFORMS) {
-    console.log(`Triggering ${platform}...`);
+    console.log(`Triggering ${platform}${targetUserId ? ` for user ${targetUserId}` : ''}...`);
     try {
-      const { data, error } = await supabase.functions.invoke(platform);
+      // Pass userId in headers if it's a user-level sync
+      const { data, error } = await supabase.functions.invoke(platform, {
+        headers: targetUserId ? { 'Authorization': `Bearer ${req.headers.get('Authorization')?.replace(/^[Bb]earer\s+/, '')}` } : undefined
+      });
       if (error) {
         console.error(`Error invoking ${platform}:`, error);
-        results[platform] = { error: error.message || error };
+        results[platform] = { error: error.message || error, status: error.status };
       } else {
         console.log(`Success: ${platform} synced ${data.count || 0} items.`);
         results[platform] = data;

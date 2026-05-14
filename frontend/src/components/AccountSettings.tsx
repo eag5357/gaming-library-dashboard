@@ -55,6 +55,34 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
     loading: boolean;
   }>({ active: false, authUrl: '', state: '', link: '', loading: false });
 
+  const [syncStates, setSyncStates] = useState<Record<string, 'idle' | 'syncing' | 'done' | 'error'>>({
+    STEAM: 'idle',
+    XBOX: 'idle',
+    PLAYSTATION: 'idle',
+    NINTENDO: 'idle',
+  });
+
+  const handleSingleSync = async (platform: string) => {
+    setSyncStates(prev => ({ ...prev, [platform]: 'syncing' }));
+    try {
+      const functionName = `sync-${platform.toLowerCase()}`;
+      const { data, error: syncError } = await supabase.functions.invoke(functionName);
+      
+      if (syncError || data.error) {
+        console.error(`${platform} sync failed:`, syncError || data.error);
+        setSyncStates(prev => ({ ...prev, [platform]: 'error' }));
+        setError(`${platform} sync failed. Check console for details.`);
+      } else {
+        setSyncStates(prev => ({ ...prev, [platform]: 'done' }));
+        setTimeout(() => setSyncStates(prev => ({ ...prev, [platform]: 'idle' })), 3000);
+        onSync(); // Refresh background data
+      }
+    } catch (err: any) {
+      setSyncStates(prev => ({ ...prev, [platform]: 'error' }));
+      setError(`Failed to trigger ${platform} sync.`);
+    }
+  };
+
   const startNintendoAuth = async () => {
     setNintendoRelay(prev => ({ ...prev, loading: true }));
     try {
@@ -155,9 +183,21 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={handleLinkSteam} className="btn-secondary">
-                  Auto-Link
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {steamId && (
+                    <button 
+                      onClick={() => handleSingleSync('STEAM')}
+                      disabled={syncStates.STEAM === 'syncing'}
+                      className="btn-ghost"
+                      style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                    >
+                      {syncStates.STEAM === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 'Sync Now'}
+                    </button>
+                  )}
+                  <button type="button" onClick={handleLinkSteam} className="btn-secondary">
+                    Auto-Link
+                  </button>
+                </div>
               </div>
               <input 
                 type="text" 
@@ -186,9 +226,21 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                     </div>
                   </div>
                 </div>
-                <button type="button" onClick={handleLinkXbox} className="btn-secondary">
-                  Auto-Link
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {xboxXuid && (
+                    <button 
+                      onClick={() => handleSingleSync('XBOX')}
+                      disabled={syncStates.XBOX === 'syncing'}
+                      className="btn-ghost"
+                      style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                    >
+                      {syncStates.XBOX === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 'Sync Now'}
+                    </button>
+                  )}
+                  <button type="button" onClick={handleLinkXbox} className="btn-secondary">
+                    Auto-Link
+                  </button>
+                </div>
               </div>
               <input 
                 type="text" 
@@ -217,9 +269,33 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                     </div>
                   </div>
                 </div>
-                <button 
-                  onClick={startNintendoAuth}
-                  disabled={nintendoRelay.loading}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {nintendoId && (
+                    <button 
+                      onClick={() => handleSingleSync('NINTENDO')}
+                      disabled={syncStates.NINTENDO === 'syncing'}
+                      className="btn-ghost"
+                      style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                    >
+                      {syncStates.NINTENDO === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 'Sync Now'}
+                    </button>
+                  )}
+                  <button 
+                    onClick={startNintendoAuth}
+                    disabled={nintendoRelay.loading}
+                    className="btn-primary" 
+                    style={{ 
+                      backgroundColor: nintendoId ? 'transparent' : '#e60012', 
+                      border: nintendoId ? '1px solid #e60012' : 'none', 
+                      color: nintendoId ? '#e60012' : 'white', 
+                      padding: '0.4rem 0.8rem', 
+                      fontSize: '0.8rem' 
+                    }}
+                  >
+                    {nintendoRelay.loading ? <RefreshCw className="animate-spin" size={14} /> : (nintendoId ? 'Reconnect' : 'Link Account')}
+                  </button>
+                </div>
+              </div>
                   className="btn-primary" 
                   style={{ 
                     backgroundColor: nintendoId ? 'transparent' : '#e60012', 
@@ -265,6 +341,16 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                     </div>
                   </div>
                 </div>
+                {psnId && (
+                  <button 
+                    onClick={() => handleSingleSync('PLAYSTATION')}
+                    disabled={syncStates.PLAYSTATION === 'syncing'}
+                    className="btn-ghost"
+                    style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                  >
+                    {syncStates.PLAYSTATION === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 'Sync Now'}
+                  </button>
+                )}
               </div>
               <div style={{ marginTop: '0.5rem' }}>
                 <input 

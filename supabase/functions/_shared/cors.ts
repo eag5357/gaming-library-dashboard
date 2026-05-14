@@ -6,25 +6,67 @@ export const corsHeaders = {
 }
 
 /**
- * Validates that the request is authorized.
- * It must either:
- * 1. Have a valid SERVICE_ROLE_KEY in the Authorization header.
- * 2. Have a valid user JWT (checked via supabase.auth.getUser).
+ * Decodes Postgres bytea (hex string or Uint8Array) to a UTF-8 string.
  */
-export async function isAuthorized(req: Request) {
+export const byteaToString = (bytea: any) => {
+  if (!bytea) return null;
+  if (typeof bytea === 'string') {
+    if (bytea.startsWith('\\x')) {
+      const hex = bytea.slice(2);
+      const bytes = hex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16));
+      return bytes ? new TextDecoder().decode(Uint8Array.from(bytes)) : null;
+    }
+    return bytea;
+  }
+  return new TextDecoder().decode(bytea);
+}
+
+/**
+ * Creates a Supabase client with the service role key and fixes the local URL if needed.
+ */
+export function getSupabaseClient() {
+  const url = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    }
+  });
+}
+
+/**
+ * Context about the authorized caller.
+ */
+export interface AuthContext {
+  userId?: string;
+  isServiceRole: boolean;
+}
+
+/**
+ * Validates the request and returns the authorization context.
+ * Returns null if the request is not authorized.
+ */
+export async function getAuthContext(req: Request): Promise<AuthContext | null> {
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return false;
-
-  const token = authHeader.replace('Bearer ', '');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-  // Path 1: Internal/Cron (Service Role)
-  if (serviceRoleKey && token === serviceRoleKey) {
-    return true;
+  const apiKeyHeader = req.headers.get('apikey');
+  
+  if (!authHeader && !apiKeyHeader) {
+    return null;
   }
 
-  // Path 2: Frontend User (JWT)
-  // We manually verify the user token if it's not the service role
+  const token = (authHeader || '').replace(/^[Bb]earer\s+/, '').trim();
+  const apiKey = (apiKeyHeader || '').trim();
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+
+  // Path 1: Service Role (Cron/Internal)
+  if (serviceRoleKey && (token === serviceRoleKey || apiKey === serviceRoleKey)) {
+    return { isServiceRole: true };
+  }
+
+  // Path 2: User JWT
+  if (!token) return null;
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -33,13 +75,20 @@ export async function isAuthorized(req: Request) {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     
     if (error || !user) {
-      console.warn("User authorization failed:", error?.message);
-      return false;
+      return null;
     }
 
-    return true;
+    return { isServiceRole: false, userId: user.id };
   } catch (e) {
-    console.error("Authorization check exception:", e);
-    return false;
+    console.error("Auth check exception:", e);
+    return null;
   }
+}
+
+/**
+ * Legacy wrapper for getAuthContext
+ */
+export async function isAuthorized(req: Request) {
+  const context = await getAuthContext(req);
+  return !!context;
 }

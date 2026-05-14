@@ -1,22 +1,26 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
 
-export async function performXboxSync() {
+export async function performXboxSync(targetUserId?: string) {
   const OPENXBL_API_KEY = Deno.env.get("OPENXBL_API_KEY") ?? "";
-  const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
+  
   if (!OPENXBL_API_KEY) {
     throw new Error("OPENXBL_API_KEY missing");
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = getSupabaseClient();
   console.log("Starting Xbox sync...");
 
-  const { data: accounts, error: accountsError } = await supabase
+  let query = supabase
     .from("linked_accounts")
     .select("*")
     .eq("platform_name", "XBOX");
+
+  if (targetUserId) {
+    query = query.eq("user_id", targetUserId);
+  }
+
+  const { data: accounts, error: accountsError } = await query;
 
   if (accountsError) throw accountsError;
   
@@ -112,7 +116,8 @@ if (!Deno.env.get("IS_TEST")) {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!(await isAuthorized(req))) {
+    const authContext = await getAuthContext(req);
+    if (!authContext) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { 
         status: 401, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -120,7 +125,8 @@ if (!Deno.env.get("IS_TEST")) {
     }
 
     try {
-      const result = await performXboxSync();
+      const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
+      const result = await performXboxSync(targetUserId);
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

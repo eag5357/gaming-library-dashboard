@@ -1,13 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseClient } from "../_shared/cors.ts";
 
 function getEnv() {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID") || "";
   const AZURE_CLIENT_SECRET = Deno.env.get("AZURE_CLIENT_SECRET") || "";
   const PUBLIC_SUPABASE_URL = SUPABASE_URL.replace("http://kong:", "http://127.0.0.1:");
   const FRONTEND_URL = "http://localhost:5173";
-  return { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, PUBLIC_SUPABASE_URL, FRONTEND_URL };
+  return { SUPABASE_URL, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, PUBLIC_SUPABASE_URL, FRONTEND_URL };
 }
 
 export async function handleLogin(url: URL) {
@@ -79,13 +79,7 @@ export async function handleCallback(url: URL) {
 
     if (!xuid) throw new Error("Could not retrieve XUID");
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      }
-    });
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from("linked_accounts")
       .upsert({

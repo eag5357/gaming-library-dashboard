@@ -1,32 +1,24 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import * as PSN from "npm:psn-api";
-import { corsHeaders, isAuthorized } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient } from "../_shared/cors.ts";
 
-export const byteaToString = (bytea: any) => {
-   if (!bytea) return null;
-   if (typeof bytea === 'string') {
-      if (bytea.startsWith('\\x')) {
-        const hex = bytea.slice(2);
-        return new TextDecoder().decode(Uint8Array.from(hex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))));
-      }
-      return bytea;
-   }
-   return new TextDecoder().decode(bytea);
-}
-
-export async function performPsnSync() {
-  const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+export async function performPsnSync(targetUserId?: string) {
   const PSN_NPSSO = Deno.env.get("PSN_NPSSO") ?? "";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = getSupabaseClient();
   console.log("Starting PlayStation sync...");
 
-  const { data: accounts, error: accountsError } = await supabase
+  let query = supabase
     .from("linked_accounts")
     .select("*")
     .eq("platform_name", "PLAYSTATION")
     .order("last_sync_at", { ascending: true, nullsFirst: true });
+
+  if (targetUserId) {
+    query = query.eq("user_id", targetUserId);
+  }
+
+  const { data: accounts, error: accountsError } = await query;
 
   if (accountsError) return { error: "DB Error", details: accountsError };
   if (!accounts || accounts.length === 0) return { message: "No PSN accounts to sync." };
@@ -176,7 +168,8 @@ if (!Deno.env.get("IS_TEST")) {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!(await isAuthorized(req))) {
+    const authContext = await getAuthContext(req);
+    if (!authContext) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { 
         status: 401, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
@@ -184,7 +177,8 @@ if (!Deno.env.get("IS_TEST")) {
     }
 
     try {
-      const result = await performPsnSync();
+      const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
+      const result = await performPsnSync(targetUserId);
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

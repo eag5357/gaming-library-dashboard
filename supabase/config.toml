@@ -61,11 +61,20 @@ verify_jwt = false
 import_map = "./functions/sync-xbox/deno.json"
 entrypoint = "./functions/sync-xbox/index.ts"
 
-[functions.nintendo-auth]
+[functions.sync-psn]
 enabled = true
 verify_jwt = false
-import_map = "./functions/nintendo-auth/deno.json"
-entrypoint = "./functions/nintendo-auth/index.ts"
+entrypoint = "./functions/sync-psn/index.ts"
+
+[functions.sync-steam]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sync-steam/index.ts"
+
+[functions.sync-nintendo]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/sync-nintendo/index.ts"
 
 [functions.auth-steam]
 enabled = true
@@ -78,6 +87,12 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/auth-xbox/deno.json"
 entrypoint = "./functions/auth-xbox/index.ts"
+
+[functions.auth-nintendo]
+enabled = true
+verify_jwt = false
+import_map = "./functions/auth-nintendo/deno.json"
+entrypoint = "./functions/auth-nintendo/index.ts"
 
 [functions.sync-all]
 enabled = true

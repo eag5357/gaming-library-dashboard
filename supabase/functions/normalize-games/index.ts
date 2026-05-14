@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
 
-export function sanitizeTitle(title: string): string {
+function sanitizeTitle(title: string): string {
   return title
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") 
@@ -10,30 +11,16 @@ export function sanitizeTitle(title: string): string {
     .trim();
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function isAuthorized(req: Request) {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) return false;
-  const token = authHeader.replace('Bearer ', '');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  return serviceRoleKey && token === serviceRoleKey;
-}
-
 async function performNormalization() {
   const TWITCH_CLIENT_ID = Deno.env.get("TWITCH_CLIENT_ID") ?? "";
   const TWITCH_CLIENT_SECRET = Deno.env.get("TWITCH_CLIENT_SECRET") ?? "";
-  const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").replace("http://kong:", "http://127.0.0.1:");
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
   if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) {
     throw new Error("Twitch credentials missing");
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = getSupabaseClient();
+
 
   // 1. Get IGDB Access Token
   const authRes = await fetch(
@@ -152,8 +139,9 @@ if (import.meta.main) {
       return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!isAuthorized(req)) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+    const authContext = await getAuthContext(req);
+    if (!authContext || !authContext.isServiceRole) {
+      return new Response(JSON.stringify({ error: "Unauthorized. This action requires service role permissions." }), { 
         status: 401, 
         headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
@@ -161,8 +149,9 @@ if (import.meta.main) {
 
     try {
       const result = await performNormalization();
-      return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+      return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error: any) {
+
       console.error("Normalization error:", error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }

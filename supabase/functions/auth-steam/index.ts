@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getSupabaseClient } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const PUBLIC_SUPABASE_URL = SUPABASE_URL.replace("http://kong:", "http://127.0.0.1:");
 const FRONTEND_URL = "http://localhost:5173";
 
@@ -47,9 +47,7 @@ export async function handleCallback(url: URL) {
     return Response.redirect(`${FRONTEND_URL}/?auth=error&platform=steam`, 302);
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
-  });
+  const supabase = getSupabaseClient();
   
   const { error } = await supabase
     .from("linked_accounts")
