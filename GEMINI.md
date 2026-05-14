@@ -22,7 +22,7 @@ We have completed a full production readiness audit and hardened the system for 
 ### Infrastructure
 *   **Secret Management**: Mandatory use of Supabase Vault for `SERVICE_ROLE_KEY` and `API_URL`.
 *   **Database**: PostgreSQL 15 with RLS, `pg_cron`, and `pg_net`.
-*   **Mandatory Pre-Commit Validation**: Before every commit, all builds (`npm run build` in frontend) and backend tests MUST pass.
+*   **Mandatory Pre-Commit Validation**: Before every commit, `make build` and `make test-all` MUST pass to ensure codebase integrity.
 
 ### Security & Audit Logs
 *   **2026-05-14**: Production Readiness & UI Overhaul.
