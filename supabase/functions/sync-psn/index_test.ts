@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { byteaToString } from "./index.ts";
+import { byteaToString } from "../_shared/cors.ts";
 
 Deno.test("byteaToString - handles hex-string (Postgres bytea format)", () => {
   const input = "\\x48656c6c6f"; // "Hello" in hex

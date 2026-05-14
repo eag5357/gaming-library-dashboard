@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
 
-function sanitizeTitle(title: string): string {
+export function sanitizeTitle(title: string): string {
   return title
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") 

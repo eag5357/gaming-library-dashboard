@@ -28,7 +28,7 @@ export async function handleLogin(url: URL) {
 }
 
 export async function handleCallback(url: URL) {
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, PUBLIC_SUPABASE_URL, FRONTEND_URL } = getEnv();
+  const { AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, PUBLIC_SUPABASE_URL, FRONTEND_URL } = getEnv();
   const code = url.searchParams.get("code");
   const userId = url.searchParams.get("state");
 

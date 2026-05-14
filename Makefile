@@ -1,4 +1,4 @@
-.PHONY: test test-frontend test-functions test-all install
+.PHONY: dev build test test-frontend test-functions test-all install
 
 # Default target
 all: test-all
@@ -7,6 +7,11 @@ all: test-all
 install:
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
+
+# Build the frontend
+build:
+	@echo "Building frontend..."
+	cd frontend && npm run build
 
 # Run all tests
 test-all: test-frontend test-functions
@@ -27,6 +32,11 @@ test-functions:
 	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-nintendo/index_test.ts
 	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/auth-xbox/index_test.ts
 	IS_TEST=true deno test --allow-read --allow-env --node-modules-dir=none supabase/functions/sync-all/index_test.ts
+
+# Run the app locally (builds and tests first)
+dev: build test-all
+	@echo "🚀 Starting development server..."
+	cd frontend && npm run dev
 
 # Alias for test-all
 test: test-all

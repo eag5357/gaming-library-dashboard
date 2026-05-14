@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { byteaToString } from "./index.ts";
+import { byteaToString } from "../_shared/cors.ts";
 
 Deno.test("byteaToString - Nintendo context - handles hex", () => {
   const input = "\\x54657374"; // "Test"
