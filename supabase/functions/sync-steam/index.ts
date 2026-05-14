@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, getSupabaseClient, triggerNormalization } from "../_shared/cors.ts";
 
 export async function performSteamSync(targetUserId?: string) {
   const STEAM_API_KEY = Deno.env.get("STEAM_API_KEY") ?? "";
@@ -76,7 +76,15 @@ if (!Deno.env.get("IS_TEST")) {
 
     try {
       const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
-      const result = await performSteamSync(targetUserId);
+      const body = await req.json().catch(() => ({}));
+      const shouldNormalize = !!body.normalize;
+
+      const result = (await performSteamSync(targetUserId)) as any;
+
+      if (shouldNormalize) {
+        result.normalization = await triggerNormalization();
+      }
+
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

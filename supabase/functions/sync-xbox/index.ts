@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, getAuthContext, getSupabaseClient } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, getSupabaseClient, triggerNormalization } from "../_shared/cors.ts";
 
 export async function performXboxSync(targetUserId?: string) {
   const OPENXBL_API_KEY = Deno.env.get("OPENXBL_API_KEY") ?? "";
@@ -126,7 +126,15 @@ if (!Deno.env.get("IS_TEST")) {
 
     try {
       const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
-      const result = await performXboxSync(targetUserId);
+      const body = await req.json().catch(() => ({}));
+      const shouldNormalize = !!body.normalize;
+
+      const result = (await performXboxSync(targetUserId)) as any;
+
+      if (shouldNormalize) {
+        result.normalization = await triggerNormalization();
+      }
+
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
 import * as PSN from "npm:psn-api";
-import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient, triggerNormalization } from "../_shared/cors.ts";
 
 export async function performPsnSync(targetUserId?: string) {
   const PSN_NPSSO = Deno.env.get("PSN_NPSSO") ?? "";
@@ -178,7 +178,15 @@ if (!Deno.env.get("IS_TEST")) {
 
     try {
       const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
-      const result = await performPsnSync(targetUserId);
+      const body = await req.json().catch(() => ({}));
+      const shouldNormalize = !!body.normalize;
+
+      const result = (await performPsnSync(targetUserId)) as any;
+
+      if (shouldNormalize) {
+        result.normalization = await triggerNormalization();
+      }
+
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });

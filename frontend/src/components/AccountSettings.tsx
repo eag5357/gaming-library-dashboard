@@ -66,9 +66,11 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
     setSyncStates(prev => ({ ...prev, [platform]: 'syncing' }));
     try {
       const functionName = `sync-${platform.toLowerCase()}`;
-      const { data, error: syncError } = await supabase.functions.invoke(functionName);
+      const { data, error: syncError } = await supabase.functions.invoke(functionName, {
+        body: { normalize: true }
+      });
       
-      if (syncError || data.error) {
+      if (syncError || data?.error) {
         console.error(`${platform} sync failed:`, syncError || data.error);
         setSyncStates(prev => ({ ...prev, [platform]: 'error' }));
         setError(`${platform} sync failed. Check console for details.`);

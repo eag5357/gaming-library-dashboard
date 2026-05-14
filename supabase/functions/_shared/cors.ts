@@ -44,6 +44,26 @@ export interface AuthContext {
 }
 
 /**
+ * Triggers the normalization process.
+ */
+export async function triggerNormalization() {
+  console.log("Triggering auto-normalization...");
+  const supabase = getSupabaseClient();
+  try {
+    const { data, error } = await supabase.functions.invoke('normalize-games');
+    if (error) {
+      console.error("Normalization trigger failed:", error);
+      return { error: error.message || error };
+    }
+    console.log(`Normalization successful: ${data?.count || 0} games linked.`);
+    return data;
+  } catch (e: any) {
+    console.error("Normalization exception:", e.message);
+    return { error: e.message };
+  }
+}
+
+/**
  * Validates the request and returns the authorization context.
  * Returns null if the request is not authorized.
  */

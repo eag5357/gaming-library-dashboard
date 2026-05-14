@@ -1,4 +1,4 @@
-import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient } from "../_shared/cors.ts";
+import { corsHeaders, getAuthContext, byteaToString, getSupabaseClient, triggerNormalization } from "../_shared/cors.ts";
 
 export async function performNintendoSync(targetUserId?: string) {
   const supabase = getSupabaseClient();
@@ -206,7 +206,15 @@ if (import.meta.main) {
 
     try {
       const targetUserId = authContext.isServiceRole ? undefined : authContext.userId;
-      const result = await performNintendoSync(targetUserId);
+      const body = await req.json().catch(() => ({}));
+      const shouldNormalize = !!body.normalize;
+
+      const result = (await performNintendoSync(targetUserId)) as any;
+
+      if (shouldNormalize) {
+        result.normalization = await triggerNormalization();
+      }
+
       return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (error) {
       return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: corsHeaders });
