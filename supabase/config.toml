@@ -51,35 +51,35 @@ file_size_limit = "52428800"
 
 [functions.normalize-games]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/normalize-games/deno.json"
 entrypoint = "./functions/normalize-games/index.ts"
 
 [functions.sync-xbox]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/sync-xbox/deno.json"
 entrypoint = "./functions/sync-xbox/index.ts"
 
 [functions.nintendo-auth]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/nintendo-auth/deno.json"
 entrypoint = "./functions/nintendo-auth/index.ts"
 
 [functions.auth-steam]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/auth-steam/deno.json"
 entrypoint = "./functions/auth-steam/index.ts"
 
 [functions.auth-xbox]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/auth-xbox/deno.json"
 entrypoint = "./functions/auth-xbox/index.ts"
 
 [functions.sync-all]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 entrypoint = "./functions/sync-all/index.ts"
