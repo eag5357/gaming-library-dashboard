@@ -1,12 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { encodeBase64Url } from "https://deno.land/std@0.208.0/encoding/base64url.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 async function handleLogin(url: URL) {
   const userId = url.searchParams.get("user_id");
-  if (!userId) return new Response("Missing user_id", { status: 400 });
+  if (!userId) return new Response("Missing user_id", { status: 400, headers: corsHeaders });
 
   const verifierBytes = new Uint8Array(32);
   crypto.getRandomValues(verifierBytes);
@@ -21,7 +22,7 @@ async function handleLogin(url: URL) {
   const authUrl = `https://accounts.nintendo.com/connect/1.0.0/authorize?state=${state}&redirect_uri=npf54789db4251161a4%3A%2F%2Fauth&client_id=54789db4251161a4&scope=openid+offline+moon%3Auser+moon%3Adevice+moon%3Aevent&response_type=session_token_code&session_token_code_challenge=${challenge}&session_token_code_challenge_method=S256&theme=login_form`;
 
   return new Response(JSON.stringify({ authUrl, state }), {
-    headers: { "Content-Type": "application/json" }
+    headers: { ...corsHeaders, "Content-Type": "application/json" }
   });
 }
 
@@ -89,16 +90,20 @@ async function handleCallback(body: any) {
     if (error) throw error;
 
     return new Response(JSON.stringify({ success: true, nintendoId }), {
-      headers: { "Content-Type": "application/json" }
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
   } catch (err: any) {
     console.error("Nintendo Auth Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
 }
 
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const url = new URL(req.url);
   let action = url.searchParams.get("action");
   let userId = url.searchParams.get("user_id");

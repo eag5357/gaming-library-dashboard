@@ -1,8 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.0";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const PLATFORMS = ["sync-steam", "sync-xbox", "sync-psn", "sync-nintendo"];
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -53,6 +58,6 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ success: true, results }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
