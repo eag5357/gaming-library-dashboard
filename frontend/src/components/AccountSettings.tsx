@@ -296,18 +296,6 @@ export function AccountSettings({ userId, onClose, onSync }: Props) {
                   </button>
                 </div>
               </div>
-                  className="btn-primary" 
-                  style={{ 
-                    backgroundColor: nintendoId ? 'transparent' : '#e60012', 
-                    border: nintendoId ? '1px solid #e60012' : 'none', 
-                    color: nintendoId ? '#e60012' : 'white', 
-                    padding: '0.4rem 0.8rem', 
-                    fontSize: '0.8rem' 
-                  }}
-                >
-                  {nintendoRelay.loading ? <RefreshCw className="animate-spin" size={14} /> : (nintendoId ? 'Reconnect' : 'Link Account')}
-                </button>
-              </div>
 
               {nintendoRelay.active && (
                 <div className="nintendo-flow">
