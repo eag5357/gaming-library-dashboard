@@ -47,6 +47,8 @@ async function performNormalization() {
 
     const MANUAL_MAPPINGS: Record<string, { id: number, display?: string }> = {
       "God of War Ragnarök": { id: 112875, display: "God of War: Ragnarok" },
+      "Red Dead Redemption": { id: 434 },
+      "RED DEAD REDEMPTION": { id: 434, display: "Red Dead Redemption" },
       "Tomb Raider I-III Remastered Starring Lara Croft": { id: 266683 },
       "Resident Evil 2": { id: 19686 },
       "Resident Evil 4": { id: 145191 },
@@ -64,6 +66,11 @@ async function performNormalization() {
 
     // Blacklist utilities/meta-apps
     if (["Megapicker", "Launcher", "Demo", "Soundtrack", "Artbook", "Lossless Scaling"].some(word => title.includes(word))) continue;
+
+    const providerGameId = pg.raw_metadata?.titleId || pg.raw_metadata?.applicationId;
+    if (providerGameId === "01007820196A6000") {
+      title = "Red Dead Redemption";
+    }
 
     let match: any = null;
     let preferredDisplay = "";

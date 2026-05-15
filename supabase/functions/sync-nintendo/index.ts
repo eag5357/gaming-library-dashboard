@@ -87,7 +87,12 @@ export async function performNintendoSync(targetUserId?: string) {
           });
           const summariesData = await summariesResp.json();
           
+          let lastSummaryMonth = "";
           if (summariesData.items) {
+              // Sort summaries by month descending to find the most recent one
+              const sortedSummaries = [...summariesData.items].sort((a, b) => b.month.localeCompare(a.month));
+              if (sortedSummaries.length > 0) lastSummaryMonth = sortedSummaries[0].month;
+
               for (const summaryLink of summariesData.items) {
                   const detailResp = await fetch(`https://api-lp1.pctl.srv.nintendo.net/moon/v1/devices/${device.deviceId}/monthly_summaries/${summaryLink.month}`, {
                       headers: commonHeaders
@@ -96,7 +101,12 @@ export async function performNintendoSync(targetUserId?: string) {
                   if (detail.mostPlayedTitles) {
                       for (const title of detail.mostPlayedTitles) {
                           const existing = titlesMap.get(title.titleId);
-                          if (!existing || existing.playtime < title.playTimeMinutes) {
+                          if (existing) {
+                              existing.playtime += title.playTimeMinutes;
+                              if (existing.name === "Unknown Game" || !existing.name) {
+                                  existing.name = title.titleName;
+                              }
+                          } else {
                               titlesMap.set(title.titleId, { id: title.titleId, name: title.titleName, playtime: title.playTimeMinutes, raw: title });
                           }
                       }
@@ -111,6 +121,14 @@ export async function performNintendoSync(targetUserId?: string) {
           const dailyData = await dailyResp.json();
           if (dailyData.items) {
               for (const daily of dailyData.items) {
+                  // Only process daily summaries for days AFTER the last monthly summary month
+                  // Or if we don't have any monthly summaries
+                  const dailyMonth = daily.date.substring(0, 7); // "YYYY-MM"
+                  if (lastSummaryMonth && dailyMonth <= lastSummaryMonth) {
+                      console.log(`Skipping daily summary for ${daily.date} as it is covered by monthly summary ${dailyMonth}`);
+                      continue;
+                  }
+
                   if (daily.devicePlayers) {
                       for (const player of daily.devicePlayers) {
                           if (player.playedApps) {
@@ -121,7 +139,9 @@ export async function performNintendoSync(targetUserId?: string) {
                                   if (existing) {
                                       existing.playtime += minutes;
                                   } else {
-                                      titlesMap.set(titleId, { id: titleId, name: "Unknown Game", playtime: minutes, raw: app });
+                                      let name = "Unknown Game";
+                                      if (titleId === "01007820196A6000") name = "Red Dead Redemption";
+                                      titlesMap.set(titleId, { id: titleId, name: name, playtime: minutes, raw: app });
                                   }
                               }
                           }
@@ -131,7 +151,9 @@ export async function performNintendoSync(targetUserId?: string) {
                       for (const app of daily.playedApps) {
                           const existing = titlesMap.get(app.applicationId);
                           if (existing) {
-                              existing.name = app.title;
+                              if (existing.name === "Unknown Game" || !existing.name) {
+                                  existing.name = app.title;
+                              }
                               existing.raw = { ...existing.raw, ...app };
                           }
                       }
